@@ -559,15 +559,6 @@ class GraphViewer extends JFrame {
 		return drawingPanel;
 	}
 
-	/**
-	 * Sets up an example graph to be displayed.
-	 *
-	 private void setupExampleGraph() {
-	 Graph<Vertex> loadedGraph = deserializeGraph("GraphUS.ser");
-	 originalGraph = (loadedGraph == null) ? getDefaultGraph() : loadedGraph;
-	 displayedGraph = originalGraph;
-	 }
-
 	 /**
 	 * Creates a default graph if no graph is loaded.
 	 * @return the created default graph
