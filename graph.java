@@ -504,22 +504,35 @@ class DirectedGraph<T> extends Graph<T> {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /**
- * The GraphViewer class provides a GUI to visualize graphs.
+ * The GraphView class provides a GUI to visualize graphs.
  * @author Daniel Tongu
  */
-class GraphViewer extends JFrame {
+class GraphView extends JFrame {
 	private List<Edge<Vertex, Vertex>> path;
 	private Graph<Vertex> originalGraph;
 	private Graph<Vertex> displayedGraph;
-	private GraphPainter<Vertex> graphPainter;
+	private PaintManager<Vertex> paintManager;
 	private JPanel drawingPanel;
 
 	/**
-	 * Constructs a new GraphViewer instance.
+	 * Constructs a new GraphView instance.
 	 */
-	public GraphViewer() {
-		super("Graph Visualization");
+	public GraphView() {
 		super.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		int minSize = 500;
 		super.setSize(minSize + (minSize * 3/4), minSize);
@@ -531,9 +544,10 @@ class GraphViewer extends JFrame {
 		super.getContentPane().add(scrollPane, BorderLayout.CENTER);
 		((JPanel) super.getContentPane()).setBorder(BorderFactory.createEmptyBorder(0, 5, 15, 5));
 
-		setupMenuBar();
 		originalGraph = getDefaultGraph();
 		displayedGraph = originalGraph;
+
+		setupMenuBar();
 	}
 
 	/**
@@ -542,20 +556,21 @@ class GraphViewer extends JFrame {
 	 */
 	private JPanel createDrawingPanel() {
 		int height = getHeight();
-		graphPainter = new GraphPainter<>();
+		paintManager = new PaintManager<>();
 		drawingPanel = new JPanel() {
 			@Override
 			protected void paintComponent(Graphics g) {
 				super.paintComponent(g);
-				setBackground(graphPainter.getPanelBackgroundColor());
+				setBackground(paintManager.getPanelBackgroundColor());
 				if (displayedGraph != null) {
-					Dimension size = graphPainter.calculateGraphPanelSize(displayedGraph, height);
+					Dimension size = paintManager.calculateGraphPanelSize(displayedGraph, height);
 					setPreferredSize(size);
-					graphPainter.drawGraph((Graphics2D) g, size.width, size.height, displayedGraph, path);
+					paintManager.drawGraph((Graphics2D) g, size.width, size.height, displayedGraph, path);
+					setTitle("Visualization" + (displayedGraph instanceof UndirectedGraph<?> ? " - Undirected " : " - Directed") + "Graph");
 				}
 			}
 		};
-		drawingPanel.setBackground(graphPainter.getPanelBackgroundColor());
+		drawingPanel.setBackground(paintManager.getPanelBackgroundColor());
 		return drawingPanel;
 	}
 
@@ -622,17 +637,17 @@ class GraphViewer extends JFrame {
 		edgeMenu.add(createMenuItem("Show Weight", this::showEdgeWeight));
 
 		// Traverse menu
-		JMenu traverseMenu = new JMenu("Traverse");
+		JMenu traverseMenu = new JMenu("Traversal");
 		traverseMenu.add(createMenuItem("Clear", this::clearTraversal));
-		traverseMenu.add(createMenuItem("DFS", this::performDFS));
-		traverseMenu.add(createMenuItem("BFS", this::performBFS));
-		traverseMenu.add(createMenuItem("MST", this::performMST));
-		traverseMenu.add(createMenuItem("Shortest Path", this::findShortestPath));
+		traverseMenu.add(createMenuItem("Show BFS", this::performBFS));
+		traverseMenu.add(createMenuItem("Show DFS",	this::performDFS));
+		traverseMenu.add(createMenuItem("Show MST", this::performMST));
+		traverseMenu.add(createMenuItem("Show Path", this::findShortestPath));
 
-		// Additional controls
-		JCheckBoxMenuItem showWeightsItem = createCheckboxMenuItem("Show Weights", this::toggleShowWeights, false);
-		JCheckBoxMenuItem darkModeToggleItem = createCheckboxMenuItem("Dark Mode", this::toggleDarkMode, graphPainter.getCurrentTheme() == ColorManager.ColorTheme.DARK);
-		JCheckBoxMenuItem toggleGraphTypeItem = createCheckboxMenuItem("Undirected", this::toggleGraphType, displayedGraph instanceof UndirectedGraph);
+		JMenu settingsMenu = new JMenu("View Settings");
+		settingsMenu.add(createCheckboxMenuItem("Show Dark Mode", this::toggleDarkMode, paintManager.getCurrentTheme() == ColorManager.ColorTheme.DARK));
+		settingsMenu.add(createCheckboxMenuItem("Show undirected", this::toggleGraphType, displayedGraph instanceof UndirectedGraph));
+		settingsMenu.add(createCheckboxMenuItem("Show Weights", this::toggleShowWeights, false));
 
 		menuBar.setLayout(new FlowLayout(FlowLayout.LEFT));
 		menuBar.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -641,9 +656,7 @@ class GraphViewer extends JFrame {
 		menuBar.add(vertexMenu);
 		menuBar.add(edgeMenu);
 		menuBar.add(traverseMenu);
-		menuBar.add(showWeightsItem);
-		menuBar.add(darkModeToggleItem);
-		menuBar.add(toggleGraphTypeItem);
+		menuBar.add(settingsMenu);
 
 		setJMenuBar(menuBar);
 	}
@@ -1104,7 +1117,7 @@ class GraphViewer extends JFrame {
 	 * Toggles the display of edge weights.
 	 */
 	private void toggleShowWeights(ActionEvent e) {
-		graphPainter.showWeights = ((JCheckBoxMenuItem) e.getSource()).isSelected();
+		paintManager.showWeights = ((JCheckBoxMenuItem) e.getSource()).isSelected();
 		drawingPanel.repaint();
 	}
 
@@ -1112,7 +1125,7 @@ class GraphViewer extends JFrame {
 	 * Toggles between dark and light mode.
 	 */
 	private void toggleDarkMode(ActionEvent e) {
-		graphPainter.toggleDarkMode();
+		paintManager.toggleDarkMode();
 		drawingPanel.repaint();
 	}
 
@@ -1167,11 +1180,10 @@ class GraphViewer extends JFrame {
 	 */
 	public static void main(String[] args) {
 		SwingUtilities.invokeLater(() -> {
-			GraphViewer ui = new GraphViewer();
+			GraphView ui = new GraphView();
 			ui.setVisible(true);
 		});
 	}
-}
 
 
 
@@ -1183,395 +1195,393 @@ class GraphViewer extends JFrame {
 
 
 
-
-/**
- * The Vertex class represents a vertex in a graph.
- * @author Daniel Tongu
- */
-class Vertex extends Point {
-	final String LABEL;
 
 	/**
-	 * Constructs a Vertex with the specified label and coordinates.
-	 * @param label the label of the vertex
-	 * @param x     the x-coordinate of the vertex
-	 * @param y     the y-coordinate of the vertex
+	 * The Vertex class represents a vertex in a graph.
+	 * @author Daniel Tongu
 	 */
-	public Vertex(String label, double x, double y) {
-		if (label == null || label.isBlank()) {
-			throw new IllegalArgumentException("Label cannot be null or blank.");
+	static class Vertex extends Point {
+		final String LABEL;
+
+		/**
+		 * Constructs a Vertex with the specified label and coordinates.
+		 * @param label the label of the vertex
+		 * @param x     the x-coordinate of the vertex
+		 * @param y     the y-coordinate of the vertex
+		 */
+		public Vertex(String label, double x, double y) {
+			if (label == null || label.isBlank()) {
+				throw new IllegalArgumentException("Label cannot be null or blank.");
+			}
+			this.LABEL = label;
+			super.setLocation(x, y);
 		}
-		this.LABEL = label;
-		super.setLocation(x, y);
-	}
 
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) return true;
-		if (!(o instanceof Vertex that)) return false;
-		return this.LABEL.equals(that.LABEL);
-	}
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) return true;
+			if (!(o instanceof Vertex that)) return false;
+			return this.LABEL.equals(that.LABEL);
+		}
 
-	@Override
-	public int hashCode() {
-		return LABEL.hashCode();
-	}
+		@Override
+		public int hashCode() {
+			return LABEL.hashCode();
+		}
 
-	@Override
-	public String toString() {
-		return LABEL;
-	}
+		@Override
+		public String toString() {
+			return LABEL;
+		}
 
-	/**
-	 * Calculates the distance to another vertex.
-	 * @param other the other vertex
-	 * @return the distance to the other vertex
-	 */
-	public double distanceTo(Vertex other) {
-		return Point.distance(x, y, other.x, other.y);
-	}
-}
-
-
-
-
-
-
-
-
-
-
-/**
- * A utility class for managing color themes.
- * @author Daniel Tongu
- */
-abstract class ColorManager {
-	/**
-	 * Enum representing available color themes.
-	 */
-	public enum ColorTheme {LIGHT, DARK}
-
-	private ColorTheme currentTheme = ColorTheme.DARK; // Default theme;
-
-	// Color constants
-	private final Color PANEL_DARK_BACKGROUND_COLOR = new Color(43, 45, 48);
-	private final Color PANEL_LIGHT_BACKGROUND_COLOR = Color.WHITE;
-
-	private final Color GRAPH_DARK_COLOR = Color.BLACK;
-	private final Color GRAPH_DARK_LABELS_COLOR = new Color(116, 167, 127);
-	private final Color GRAPH_DARK_FADE_COLOR = Color.BLACK;
-
-	private final Color GRAPH_LIGHT_COLOR = Color.WHITE;
-	private final Color GRAPH_LIGHT_LABELS_COLOR = new Color(235, 80, 57);
-	private final Color GRAPH_LIGHT_FADE_COLOR = new Color(234, 236, 238);
-
-	/**
-	 * Gets the current color theme.
-	 * @return The current color theme.
-	 */
-	public ColorTheme getCurrentTheme() {
-		return currentTheme;
-	}
-
-	/**
-	 * Gets the background color of the graph panel based on the current theme.
-	 * @return The background color.
-	 */
-	public Color getPanelBackgroundColor() {
-		return (currentTheme == ColorTheme.DARK) ? PANEL_DARK_BACKGROUND_COLOR : PANEL_LIGHT_BACKGROUND_COLOR;
-	}
-
-	/**
-	 * Gets the color of the graph elements based on the current theme.
-	 * @return The graph color.
-	 */
-	public Color getGraphColor() {
-		return (currentTheme == ColorTheme.DARK) ? GRAPH_LIGHT_COLOR : GRAPH_DARK_COLOR;
-	}
-
-	/**
-	 * Gets the fade color of the graph elements based on the current theme.
-	 * @return The fade graph color.
-	 */
-	public Color getGraphFadeColor() {
-		return (currentTheme == ColorTheme.DARK) ? GRAPH_DARK_FADE_COLOR : GRAPH_LIGHT_FADE_COLOR;
-	}
-
-	/**
-	 * Gets the color of the graph labels based on the current theme.
-	 * @return The graph labels color.
-	 */
-	public Color getLabelColor() {
-		return (currentTheme == ColorTheme.DARK) ? GRAPH_LIGHT_LABELS_COLOR: GRAPH_DARK_LABELS_COLOR;
-	}
-
-	/**
-	 * Toggles between dark and light themes.
-	 */
-	public void toggleDarkMode() {
-		currentTheme = (currentTheme == ColorTheme.DARK) ? ColorTheme.LIGHT : ColorTheme.DARK;
-	}
-}
-
-
-
-
-
-
-
-
-
-
-/**
- * The GraphPainter class handles the drawing of the graph.
- * @param <T> the type of the vertices in the graph.
- * @author Daniel Tongu
- */
-class GraphPainter<T extends Vertex> extends ColorManager {
-	final int vertexDiameter = 25;
-	protected boolean showWeights;
-
-	/**
-	 * Draws the graph.
-	 * @param g2d         the graphics context
-	 * @param panelWidth  the width of the panel
-	 * @param panelHeight the height of the panel
-	 * @param graph       the graph to draw
-	 * @param path        the path to highlight
-	 */
-	public void drawGraph(Graphics2D g2d, int panelWidth, int panelHeight, Graph<T> graph, List<Edge<T, T>> path) {
-		if (graph == null || graph.isEmpty()) return;
-
-		g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-		g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-
-		// Calculate the graph bounds
-		Rectangle graphBounds = calculateGraphBounds(graph);
-
-		// Scale and translate setup
-		double scale = calculateScale(graphBounds, panelWidth, panelHeight);
-		Point offset = calculateOffset(graphBounds, panelWidth, panelHeight, scale);
-
-		// Convert path list to a HashSet for efficient lookup
-		Set<Edge<T, T>> pathSet = (path != null) ? new HashSet<>(path) : Collections.emptySet();
-
-		// draw the graph
-		drawEdges(g2d, graph, scale, offset, path);
-		drawVertices(g2d, graph, scale, offset, pathSet);
-	}
-
-	/**
-	 * Draws the vertices of the graph.
-	 * @param g2d      the graphics context
-	 * @param graph    the graph to draw
-	 * @param scale    the scale factor
-	 * @param offset   the offset for positioning
-	 * @param pathSet  the set of edges in the path
-	 */
-	private void drawVertices(Graphics2D g2d, Graph<T> graph, double scale, Point offset, Set<Edge<T, T>> pathSet) {
-		for (T vertex : graph.getVertices()) {
-			drawVertex(g2d, vertex, scale, offset, super.getGraphColor(), super.getLabelColor());
+		/**
+		 * Calculates the distance to another vertex.
+		 * @param other the other vertex
+		 * @return the distance to the other vertex
+		 */
+		public double distanceTo(Vertex other) {
+			return Point.distance(x, y, other.x, other.y);
 		}
 	}
 
+
+
+
+
+
+
+
+
+
+
 	/**
-	 * Draws a single vertex.
-	 * @param g2d     the graphics context
-	 * @param vertex  the vertex to draw
-	 * @param scale   the scale factor
-	 * @param offset  the offset for positioning
-	 * @param vColor  the color of the vertex
-	 * @param lColor  the color of the vertex label
+	 * A utility class for managing color themes.
+	 * @author Daniel Tongu
 	 */
-	private void drawVertex(Graphics2D g2d, Vertex vertex, double scale, Point offset, Color vColor, Color lColor) {
-		// Calculate the position of the vertex on the panel
-		double x = vertex.x * scale + offset.x - (double) vertexDiameter / 2;
-		double y = vertex.y * scale + offset.y - (double) vertexDiameter / 2;
+	abstract static class ColorManager {
+		/**
+		 * Enum representing available color themes.
+		 */
+		public enum ColorTheme {LIGHT, DARK}
 
-		// Draw the vertex circle
-		g2d.setColor(vColor);
-		g2d.fill(new Ellipse2D.Double(x, y, vertexDiameter, vertexDiameter));
+		private ColorTheme currentTheme = ColorTheme.DARK; // Default theme;
 
-		// Calculate the font size based on the vertex diameter
-		int fontSize = (int) (vertexDiameter / 1.7);
-		Font font = new Font("Arial", Font.PLAIN, fontSize);
-		g2d.setFont(font);
+		// Color constants
+		private final Color PANEL_DARK_BACKGROUND_COLOR = new Color(43, 45, 48);
+		private final Color PANEL_LIGHT_BACKGROUND_COLOR = Color.WHITE;
 
-		// Prepare to draw the label centered
-		FontMetrics fm = g2d.getFontMetrics();
-		double textWidth = fm.stringWidth(vertex.LABEL);
-		double textHeight = fm.getHeight();
-		double textX = x + (vertexDiameter - textWidth) / 2;
-		double textY = y + (vertexDiameter - textHeight) / 2 + fm.getAscent();
+		private final Color GRAPH_DARK_COLOR = Color.BLACK;
+		private final Color GRAPH_DARK_LABELS_COLOR = new Color(116, 167, 127);
+		private final Color GRAPH_DARK_FADE_COLOR = Color.BLACK;
 
-		// Draw the label shadow
-		g2d.setColor(Color.BLACK); // Shadow color
-		g2d.drawString(vertex.LABEL, (float) (textX + .3), (float) (textY + .3)); // Offset by .3 pixels
+		private final Color GRAPH_LIGHT_COLOR = Color.WHITE;
+		private final Color GRAPH_LIGHT_LABELS_COLOR = new Color(235, 80, 57);
+		private final Color GRAPH_LIGHT_FADE_COLOR = new Color(234, 236, 238);
 
-		// Draw the label
-		g2d.setColor(lColor); // Original label color
-		g2d.drawString(vertex.LABEL, (float) textX, (float) textY);
+		/**
+		 * Gets the current color theme.
+		 * @return The current color theme.
+		 */
+		public ColorTheme getCurrentTheme() {
+			return currentTheme;
+		}
+
+		/**
+		 * Gets the background color of the graph panel based on the current theme.
+		 * @return The background color.
+		 */
+		public Color getPanelBackgroundColor() {
+			return (currentTheme == ColorTheme.DARK) ? PANEL_DARK_BACKGROUND_COLOR : PANEL_LIGHT_BACKGROUND_COLOR;
+		}
+
+		/**
+		 * Gets the color of the graph elements based on the current theme.
+		 * @return The graph color.
+		 */
+		public Color getGraphColor() {
+			return (currentTheme == ColorTheme.DARK) ? GRAPH_LIGHT_COLOR : GRAPH_DARK_COLOR;
+		}
+
+		/**
+		 * Gets the fade color of the graph elements based on the current theme.
+		 * @return The fade graph color.
+		 */
+		public Color getGraphFadeColor() {
+			return (currentTheme == ColorTheme.DARK) ? GRAPH_DARK_FADE_COLOR : GRAPH_LIGHT_FADE_COLOR;
+		}
+
+		/**
+		 * Gets the color of the graph labels based on the current theme.
+		 * @return The graph labels color.
+		 */
+		public Color getLabelColor() {
+			return (currentTheme == ColorTheme.DARK) ? GRAPH_LIGHT_LABELS_COLOR: GRAPH_DARK_LABELS_COLOR;
+		}
+
+		/**
+		 * Toggles between dark and light themes.
+		 */
+		public void toggleDarkMode() {
+			currentTheme = (currentTheme == ColorTheme.DARK) ? ColorTheme.LIGHT : ColorTheme.DARK;
+		}
 	}
 
-	/**
-	 * Draws the edges of the graph.
-	 * @param g2d        the graphics context
-	 * @param graph      the graph to draw
-	 * @param scale      the scale factor
-	 * @param offset     the offset for positioning
-	 * @param pathEdges  the list of edges in the path
-	 */
-	private void drawEdges(Graphics2D g2d, Graph<T> graph, double scale, Point offset, List<Edge<T, T>> pathEdges) {
-		Set<Edge<T, T>> edges = new HashSet<>(graph.getEdges());
 
-		if (pathEdges != null && !pathEdges.isEmpty()) {
-			for (Edge<T, T> edge : pathEdges) {
-				drawEdge(g2d, edge, graph.isDirected(), scale, offset, super.getGraphColor());
-				edges.remove(edge);
-				if (!graph.isDirected()) {
-					Edge<T, T> reverseEdge = new Edge<>(edge.DESTINATION, edge.SOURCE, edge.weight);
-					edges.remove(reverseEdge);
-				}
+
+
+
+
+
+
+
+
+	/**
+	 * The PaintManager class handles the drawing of the graph.
+	 * @param <T> the type of the vertices in the graph.
+	 * @author Daniel Tongu
+	 */
+	static class PaintManager<T extends Vertex> extends ColorManager {
+		final int vertexDiameter = 25;
+		protected boolean showWeights;
+
+		/**
+		 * Draws the graph.
+		 * @param g2d         the graphics context
+		 * @param panelWidth  the width of the panel
+		 * @param panelHeight the height of the panel
+		 * @param graph       the graph to draw
+		 * @param path        the path to highlight
+		 */
+		public void drawGraph(Graphics2D g2d, int panelWidth, int panelHeight, Graph<T> graph, List<Edge<T, T>> path) {
+			if (graph == null || graph.isEmpty()) return;
+
+			g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+			g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+
+			// Calculate the graph bounds
+			Rectangle graphBounds = calculateGraphBounds(graph);
+
+			// Scale and translate setup
+			double scale = calculateScale(graphBounds, panelWidth, panelHeight);
+			Point offset = calculateOffset(graphBounds, panelWidth, panelHeight, scale);
+
+			// draw the graph
+			drawEdges(g2d, graph, scale, offset, path);
+			drawVertices(g2d, graph, scale, offset);
+		}
+
+		/**
+		 * Draws the vertices of the graph.
+		 * @param g2d      the graphics context
+		 * @param graph    the graph to draw
+		 * @param scale    the scale factor
+		 * @param offset   the offset for positioning
+		 */
+		private void drawVertices(Graphics2D g2d, Graph<T> graph, double scale, Point offset) {
+			for (T vertex : graph.getVertices()) {
+				drawVertex(g2d, vertex, scale, offset, super.getGraphColor(), super.getLabelColor());
 			}
 		}
 
-		Color color = pathEdges != null && !pathEdges.isEmpty() ? super.getGraphFadeColor() : super.getGraphColor();
-		for (Edge<T, T> edge : edges) {
-			drawEdge(g2d, edge, graph.isDirected(), scale, offset, color);
+		/**
+		 * Draws a single vertex.
+		 * @param g2d     the graphics context
+		 * @param vertex  the vertex to draw
+		 * @param scale   the scale factor
+		 * @param offset  the offset for positioning
+		 * @param vColor  the color of the vertex
+		 * @param lColor  the color of the vertex label
+		 */
+		private void drawVertex(Graphics2D g2d, Vertex vertex, double scale, Point offset, Color vColor, Color lColor) {
+			// Calculate the position of the vertex on the panel
+			double x = vertex.x * scale + offset.x - (double) vertexDiameter / 2;
+			double y = vertex.y * scale + offset.y - (double) vertexDiameter / 2;
+
+			// Draw the vertex circle
+			g2d.setColor(vColor);
+			g2d.fill(new Ellipse2D.Double(x, y, vertexDiameter, vertexDiameter));
+
+			// Calculate the font size based on the vertex diameter
+			int fontSize = (int) (vertexDiameter / 1.7);
+			Font font = new Font("Arial", Font.PLAIN, fontSize);
+			g2d.setFont(font);
+
+			// Prepare to draw the label centered
+			FontMetrics fm = g2d.getFontMetrics();
+			double textWidth = fm.stringWidth(vertex.LABEL);
+			double textHeight = fm.getHeight();
+			double textX = x + (vertexDiameter - textWidth) / 2;
+			double textY = y + (vertexDiameter - textHeight) / 2 + fm.getAscent();
+
+			// Draw the label shadow
+			g2d.setColor(Color.BLACK); // Shadow color
+			g2d.drawString(vertex.LABEL, (float) (textX + .3), (float) (textY + .3)); // Offset by .3 pixels
+
+			// Draw the label
+			g2d.setColor(lColor); // Original label color
+			g2d.drawString(vertex.LABEL, (float) textX, (float) textY);
+		}
+
+		/**
+		 * Draws the edges of the graph.
+		 * @param g2d        the graphics context
+		 * @param graph      the graph to draw
+		 * @param scale      the scale factor
+		 * @param offset     the offset for positioning
+		 * @param pathEdges  the list of edges in the path
+		 */
+		private void drawEdges(Graphics2D g2d, Graph<T> graph, double scale, Point offset, List<Edge<T, T>> pathEdges) {
+			Set<Edge<T, T>> edges = new HashSet<>(graph.getEdges());
+
+			if (pathEdges != null && !pathEdges.isEmpty()) {
+				for (Edge<T, T> edge : pathEdges) {
+					drawEdge(g2d, edge, graph.isDirected(), scale, offset, super.getGraphColor());
+					edges.remove(edge);
+					if (!graph.isDirected()) {
+						Edge<T, T> reverseEdge = new Edge<>(edge.DESTINATION, edge.SOURCE, edge.weight);
+						edges.remove(reverseEdge);
+					}
+				}
+			}
+
+			Color color = pathEdges != null && !pathEdges.isEmpty() ? super.getGraphFadeColor() : super.getGraphColor();
+			for (Edge<T, T> edge : edges) {
+				drawEdge(g2d, edge, graph.isDirected(), scale, offset, color);
+			}
+		}
+
+		/**
+		 * Draws a single edge.
+		 * @param g2d       the graphics context
+		 * @param edge      the edge to draw
+		 * @param isDirected whether the graph is directed
+		 * @param scale     the scale factor
+		 * @param offset    the offset for positioning
+		 * @param color     the color of the edge
+		 */
+		private void drawEdge(Graphics2D g2d, Edge<T, T> edge, boolean isDirected, double scale, Point offset, Color color) {
+			T v1 = edge.SOURCE;
+			T v2 = edge.DESTINATION;
+
+			g2d.setColor(color);
+
+			int x1 = (int) (v1.x * scale + offset.x);
+			int y1 = (int) (v1.y * scale + offset.y);
+			int x2 = (int) (v2.x * scale + offset.x);
+			int y2 = (int) (v2.y * scale + offset.y);
+
+			g2d.drawLine(x1, y1, x2, y2);
+
+			if (isDirected) {
+				drawArrowHead(g2d, x1, y1, x2, y2);
+			}
+
+			if (showWeights) {
+				String weight = String.format("%.2f", edge.weight);
+				int mx = (x1 + x2) / 2;
+				int my = (y1 + y2) / 2;
+				g2d.drawString(weight, mx, my);
+			}
+		}
+
+		/**
+		 * Draws an arrowhead for a directed edge.
+		 * @param g2d the graphics context
+		 * @param x1  the x-coordinate of the start point
+		 * @param y1  the y-coordinate of the start point
+		 * @param x2  the x-coordinate of the end point
+		 * @param y2  the y-coordinate of the end point
+		 */
+		private void drawArrowHead(Graphics2D g2d, int x1, int y1, int x2, int y2) {
+			int arrowLength = 23;
+			int arrowWidth = 5;
+
+			double angle = Math.atan2(y2 - y1, x2 - x1);
+
+			int xArrowEnd = x2 - (int) (arrowLength * Math.cos(angle));
+			int yArrowEnd = y2 - (int) (arrowLength * Math.sin(angle));
+
+			int[] xPoints = {x2, xArrowEnd + (int) (arrowWidth * Math.sin(angle)), xArrowEnd - (int) (arrowWidth * Math.sin(angle))};
+			int[] yPoints = {y2, yArrowEnd - (int) (arrowWidth * Math.cos(angle)), yArrowEnd + (int) (arrowWidth * Math.cos(angle))};
+
+			g2d.draw(new Line2D.Double(x1, y1, xArrowEnd, yArrowEnd));
+			g2d.fillPolygon(xPoints, yPoints, 3);
+		}
+		/**
+		 * Calculates the scale factor for the graph based on the panel size.
+		 * @param graphBounds the bounds of the graph
+		 * @param panelWidth  the width of the panel
+		 * @param panelHeight the height of the panel
+		 * @return the calculated scale factor
+		 */
+		private double calculateScale(Rectangle graphBounds, int panelWidth, int panelHeight) {
+			double graphWidth = graphBounds.getWidth();
+			double graphHeight = graphBounds.getHeight();
+
+			// Prevent division by zero or tiny graph dimensions causing infinite scale.
+			if (graphWidth == 0) graphWidth = 1;
+			if (graphHeight == 0) graphHeight = 1;
+
+			double scaleX = panelWidth / graphWidth;
+			double scaleY = panelHeight / graphHeight;
+
+			return Math.min(scaleX, scaleY) * 0.9;
+		}
+
+		/**
+		 * Calculates the offset to center the graph on the panel.
+		 * @param graphBounds the bounds of the graph
+		 * @param panelWidth  the width of the panel
+		 * @param panelHeight the height of the panel
+		 * @param scale       the scale factor
+		 * @return the calculated offset point
+		 */
+		private Point calculateOffset(Rectangle graphBounds, int panelWidth, int panelHeight, double scale) {
+			double graphWidth = graphBounds.getWidth() * scale;
+			double graphHeight = graphBounds.getHeight() * scale;
+
+			// Calculate the offset to center the graph
+			double offsetX = (panelWidth - graphWidth) / 2 - graphBounds.getX() * scale;
+			double offsetY = (panelHeight - graphHeight) / 2 - graphBounds.getY() * scale;
+
+			return new Point((int) offsetX, (int) offsetY);
+		}
+
+		/**
+		 * Calculates the bounding rectangle of the graph.
+		 * @param graph the graph to calculate bounds for
+		 * @return the bounding rectangle of the graph
+		 */
+		public Rectangle calculateGraphBounds(Graph<T> graph) {
+			double minX = Double.MAX_VALUE, maxX = Double.MIN_VALUE, minY = Double.MAX_VALUE, maxY = Double.MIN_VALUE;
+
+			for (T vertex : graph.getVertices()) {
+				if (vertex.x < minX) { minX = vertex.x; }
+				if (vertex.x > maxX) { maxX = vertex.x; }
+				if (vertex.y < minY) { minY = vertex.y; }
+				if (vertex.y > maxY) { maxY = vertex.y; }
+			}
+
+			return new Rectangle(
+					(int) minX,
+					(int) minY,
+					(int) (maxX - minX),
+					(int) (maxY - minY)
+			);
+		}
+
+		/**
+		 * Calculates the preferred size of the panel to fit the graph.
+		 * @param graph   the graph to calculate the panel size for
+		 * @param minSize the minimum size of the panel
+		 * @return the calculated dimension of the panel
+		 */
+		public Dimension calculateGraphPanelSize(Graph<T> graph, int minSize) {
+			Rectangle bounds = calculateGraphBounds(graph);
+			int width = (int) (bounds.getWidth() * 1.1); // Add some padding
+			int height = (int) (bounds.getHeight() * 1.1); // Add some padding
+			return new Dimension(Math.max(width, minSize), Math.max(height, minSize));
 		}
 	}
 
-	/**
-	 * Draws a single edge.
-	 * @param g2d       the graphics context
-	 * @param edge      the edge to draw
-	 * @param isDirected whether the graph is directed
-	 * @param scale     the scale factor
-	 * @param offset    the offset for positioning
-	 * @param color     the color of the edge
-	 */
-	private void drawEdge(Graphics2D g2d, Edge<T, T> edge, boolean isDirected, double scale, Point offset, Color color) {
-		T v1 = edge.SOURCE;
-		T v2 = edge.DESTINATION;
-
-		g2d.setColor(color);
-
-		int x1 = (int) (v1.x * scale + offset.x);
-		int y1 = (int) (v1.y * scale + offset.y);
-		int x2 = (int) (v2.x * scale + offset.x);
-		int y2 = (int) (v2.y * scale + offset.y);
-
-		g2d.drawLine(x1, y1, x2, y2);
-
-		if (isDirected) {
-			drawArrowHead(g2d, x1, y1, x2, y2);
-		}
-
-		if (showWeights) {
-			String weight = String.format("%.2f", edge.weight);
-			int mx = (x1 + x2) / 2;
-			int my = (y1 + y2) / 2;
-			g2d.drawString(weight, mx, my);
-		}
-	}
-
-	/**
-	 * Draws an arrowhead for a directed edge.
-	 * @param g2d the graphics context
-	 * @param x1  the x-coordinate of the start point
-	 * @param y1  the y-coordinate of the start point
-	 * @param x2  the x-coordinate of the end point
-	 * @param y2  the y-coordinate of the end point
-	 */
-	private void drawArrowHead(Graphics2D g2d, int x1, int y1, int x2, int y2) {
-		int arrowLength = 23;
-		int arrowWidth = 5;
-
-		double angle = Math.atan2(y2 - y1, x2 - x1);
-
-		int xArrowEnd = x2 - (int) (arrowLength * Math.cos(angle));
-		int yArrowEnd = y2 - (int) (arrowLength * Math.sin(angle));
-
-		int[] xPoints = {x2, xArrowEnd + (int) (arrowWidth * Math.sin(angle)), xArrowEnd - (int) (arrowWidth * Math.sin(angle))};
-		int[] yPoints = {y2, yArrowEnd - (int) (arrowWidth * Math.cos(angle)), yArrowEnd + (int) (arrowWidth * Math.cos(angle))};
-
-		g2d.draw(new Line2D.Double(x1, y1, xArrowEnd, yArrowEnd));
-		g2d.fillPolygon(xPoints, yPoints, 3);
-	}
-	/**
-	 * Calculates the scale factor for the graph based on the panel size.
-	 * @param graphBounds the bounds of the graph
-	 * @param panelWidth  the width of the panel
-	 * @param panelHeight the height of the panel
-	 * @return the calculated scale factor
-	 */
-	private double calculateScale(Rectangle graphBounds, int panelWidth, int panelHeight) {
-		double graphWidth = graphBounds.getWidth();
-		double graphHeight = graphBounds.getHeight();
-
-		// Prevent division by zero or tiny graph dimensions causing infinite scale.
-		if (graphWidth == 0) graphWidth = 1;
-		if (graphHeight == 0) graphHeight = 1;
-
-		double scaleX = panelWidth / graphWidth;
-		double scaleY = panelHeight / graphHeight;
-		double scale = Math.min(scaleX, scaleY) * 0.9; // Multiply by 0.9 to add some padding around the graph
-
-		return scale;
-	}
-
-	/**
-	 * Calculates the offset to center the graph on the panel.
-	 * @param graphBounds the bounds of the graph
-	 * @param panelWidth  the width of the panel
-	 * @param panelHeight the height of the panel
-	 * @param scale       the scale factor
-	 * @return the calculated offset point
-	 */
-	private Point calculateOffset(Rectangle graphBounds, int panelWidth, int panelHeight, double scale) {
-		double graphWidth = graphBounds.getWidth() * scale;
-		double graphHeight = graphBounds.getHeight() * scale;
-
-		// Calculate the offset to center the graph
-		double offsetX = (panelWidth - graphWidth) / 2 - graphBounds.getX() * scale;
-		double offsetY = (panelHeight - graphHeight) / 2 - graphBounds.getY() * scale;
-
-		return new Point((int) offsetX, (int) offsetY);
-	}
-
-	/**
-	 * Calculates the bounding rectangle of the graph.
-	 * @param graph the graph to calculate bounds for
-	 * @return the bounding rectangle of the graph
-	 */
-	public Rectangle calculateGraphBounds(Graph<T> graph) {
-		double minX = Double.MAX_VALUE, maxX = Double.MIN_VALUE, minY = Double.MAX_VALUE, maxY = Double.MIN_VALUE;
-
-		for (T vertex : graph.getVertices()) {
-			if (vertex.x < minX) { minX = vertex.x; }
-			if (vertex.x > maxX) { maxX = vertex.x; }
-			if (vertex.y < minY) { minY = vertex.y; }
-			if (vertex.y > maxY) { maxY = vertex.y; }
-		}
-
-		return new Rectangle(
-				(int) minX,
-				(int) minY,
-				(int) (maxX - minX),
-				(int) (maxY - minY)
-		);
-	}
-
-	/**
-	 * Calculates the preferred size of the panel to fit the graph.
-	 * @param graph   the graph to calculate the panel size for
-	 * @param minSize the minimum size of the panel
-	 * @return the calculated dimension of the panel
-	 */
-	public Dimension calculateGraphPanelSize(Graph<T> graph, int minSize) {
-		Rectangle bounds = calculateGraphBounds(graph);
-		int width = (int) (bounds.getWidth() * 1.1); // Add some padding
-		int height = (int) (bounds.getHeight() * 1.1); // Add some padding
-		return new Dimension(Math.max(width, minSize), Math.max(height, minSize));
-	}
 }
