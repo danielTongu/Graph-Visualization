@@ -9,6 +9,7 @@ import java.util.*;
 import java.util.List;
 import java.util.Objects;
 
+
 /**
  * The Edge class represents an edge in a graph with a source, destination, and weight.
  * @param <U> the type of the source vertex
@@ -57,6 +58,14 @@ final class Edge<U, V> implements Serializable {
 				'}';
 	}
 }
+
+
+
+
+
+
+
+
 
 /**
  * The Graph class represents an abstract graph structure.
@@ -398,6 +407,14 @@ public abstract class Graph<T> implements Serializable {
 	}
 }
 
+
+
+
+
+
+
+
+
 /**
  * The UndirectedGraph class represents an undirected graph.
  * @param <T> the type of the vertices in the graph
@@ -468,6 +485,14 @@ class UndirectedGraph<T> extends Graph<T> {
 	}
 }
 
+
+
+
+
+
+
+
+
 /**
  * The DirectedGraph class represents a directed graph.
  * @param <T> the type of the vertices in the graph
@@ -500,15 +525,6 @@ class DirectedGraph<T> extends Graph<T> {
 		return true;
 	}
 }
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1431,22 +1447,24 @@ class GraphView extends JFrame {
 		 * @param pathEdges  the list of edges in the path
 		 */
 		private void drawEdges(Graphics2D g2d, Graph<T> graph, double scale, Point offset, List<Edge<T, T>> pathEdges) {
-			Set<Edge<T, T>> edges = new HashSet<>(graph.getEdges());
+			Set<Edge<T, T>> pathEdgesCopy = pathEdges != null ? new HashSet<>(pathEdges) : new HashSet<>();
+			boolean drawPath = pathEdges != null && !pathEdges.isEmpty();
+			Color color = drawPath ? super.getGraphFadeColor() : super.getGraphColor();
 
-			if (pathEdges != null && !pathEdges.isEmpty()) {
-				for (Edge<T, T> edge : pathEdges) {
-					drawEdge(g2d, edge, graph.isDirected(), scale, offset, super.getGraphColor());
-					edges.remove(edge);
-					if (!graph.isDirected()) {
-						Edge<T, T> reverseEdge = new Edge<>(edge.DESTINATION, edge.SOURCE, edge.weight);
-						edges.remove(reverseEdge);
-					}
+			// First, draw all edges of the graph
+			for (Edge<T, T> edge : graph.getEdges()) {
+				Edge<T, T> reverseEdge = new Edge<>(edge.DESTINATION, edge.SOURCE, edge.weight);
+				if (!pathEdgesCopy.contains(edge) && !pathEdgesCopy.contains(reverseEdge)) {
+					drawEdge(g2d, edge, graph.isDirected(), scale, offset, color);
 				}
 			}
 
-			Color color = pathEdges != null && !pathEdges.isEmpty() ? super.getGraphFadeColor() : super.getGraphColor();
-			for (Edge<T, T> edge : edges) {
-				drawEdge(g2d, edge, graph.isDirected(), scale, offset, color);
+			// Then, draw the path edges
+			if (drawPath) {
+				color = super.getGraphColor();
+				for (Edge<T, T> edge : pathEdges) {
+					drawEdge(g2d, edge, graph.isDirected(), scale, offset, color);
+				}
 			}
 		}
 
@@ -1501,7 +1519,7 @@ class GraphView extends JFrame {
 			int xArrowEnd = x2 - (int) (arrowLength * Math.cos(angle));
 			int yArrowEnd = y2 - (int) (arrowLength * Math.sin(angle));
 
-			int[] xPoints = {x2, xArrowEnd + (int) (arrowWidth * Math.sin(angle)), xArrowEnd - (int) (arrowWidth * Math.sin(angle))};
+			int[] xPoints = {x2, xArrowEnd + (int) (arrowWidth * Math.sin(angle)), xArrowEnd - (int) (arrowWidth * Math.sin(angle)) };
 			int[] yPoints = {y2, yArrowEnd - (int) (arrowWidth * Math.cos(angle)), yArrowEnd + (int) (arrowWidth * Math.cos(angle))};
 
 			g2d.draw(new Line2D.Double(x1, y1, xArrowEnd, yArrowEnd));
