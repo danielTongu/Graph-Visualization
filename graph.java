@@ -639,7 +639,7 @@ class GraphView extends JFrame {
 		settingsMenu.add(createCheckboxMenuItem("Show Dark Mode", this::toggleDarkMode, paintManager.getCurrentTheme() == ColorManager.ColorTheme.DARK));
 
 		menuBar.setLayout(new FlowLayout(FlowLayout.LEFT));
-		menuBar.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+		menuBar.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
 
 		menuBar.add(fileMenu);
 		menuBar.add(vertexMenu);
@@ -1281,7 +1281,7 @@ class GraphView extends JFrame {
 		 */
 		public enum ColorTheme {LIGHT, DARK}
 
-		private ColorTheme currentTheme = ColorTheme.DARK; // Default theme;
+		private ColorTheme currentTheme = ColorTheme.LIGHT; // Default theme;
 
 		// Color constants
 		private final Color PANEL_DARK_BACKGROUND_COLOR = new Color(43, 45, 48);
@@ -1350,7 +1350,7 @@ class GraphView extends JFrame {
 	 * @author Daniel Tongu
 	 */
 	static class PaintManager<T extends Vertex> extends ColorManager {
-		final int vertexDiameter = 25;
+		final int vertexDiameter = 27;
 		protected boolean showWeights;
 
 		/**
@@ -1504,20 +1504,31 @@ class GraphView extends JFrame {
 		 * @param y2  the y-coordinate of the end point
 		 */
 		private void drawArrowHead(Graphics2D g2d, int x1, int y1, int x2, int y2) {
-			int arrowLength = 23;
+			int arrowLength = 9;
 			int arrowWidth = 5;
+			int vertexRadius = vertexDiameter / 2;
 
+			// Calculate the angle of the line
 			double angle = Math.atan2(y2 - y1, x2 - x1);
 
-			int xArrowEnd = x2 - (int) (arrowLength * Math.cos(angle));
-			int yArrowEnd = y2 - (int) (arrowLength * Math.sin(angle));
+			// Calculate the new endpoint of the arrow, which is outside the vertex
+			int xArrowEnd = x2 - (int) (vertexRadius * Math.cos(angle));
+			int yArrowEnd = y2 - (int) (vertexRadius * Math.sin(angle));
 
-			int[] xPoints = {x2, xArrowEnd + (int) (arrowWidth * Math.sin(angle)), xArrowEnd - (int) (arrowWidth * Math.sin(angle)) };
-			int[] yPoints = {y2, yArrowEnd - (int) (arrowWidth * Math.cos(angle)), yArrowEnd + (int) (arrowWidth * Math.cos(angle))};
+			// Calculate the points for the chevron arrowhead
+			int x1Point = xArrowEnd - (int) (arrowLength * Math.cos(angle) - arrowWidth * Math.sin(angle));
+			int y1Point = yArrowEnd - (int) (arrowLength * Math.sin(angle) + arrowWidth * Math.cos(angle));
+			int x2Point = xArrowEnd - (int) (arrowLength * Math.cos(angle) + arrowWidth * Math.sin(angle));
+			int y2Point = yArrowEnd - (int) (arrowLength * Math.sin(angle) - arrowWidth * Math.cos(angle));
 
-			g2d.draw(new Line2D.Double(x1, y1, xArrowEnd, yArrowEnd));
-			g2d.fillPolygon(xPoints, yPoints, 3);
+			// Draw the arrow shaft from the start to the new end point
+			g2d.drawLine(x1, y1, xArrowEnd, yArrowEnd);
+
+			// Draw the chevron arrowhead
+			g2d.drawLine(xArrowEnd, yArrowEnd, x1Point, y1Point);
+			g2d.drawLine(xArrowEnd, yArrowEnd, x2Point, y2Point);
 		}
+
 		/**
 		 * Calculates the scale factor for the graph based on the panel size.
 		 * @param graphBounds the bounds of the graph
