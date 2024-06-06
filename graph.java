@@ -177,7 +177,17 @@ public abstract class Graph<T> implements Serializable {
 	}
 
 	/**
-	 * Adds an edge between the specified vertices with the given weight.
+	 * Adds an unweighted edge between the specified vertices.
+	 * @param v1     the first vertex
+	 * @param v2     the second vertex
+	 * @return true if the edge was added, false if it already existed
+	 */
+	public boolean addEdge(T v1, T v2) {
+		return addEdge(v1, v2, 0);
+	}
+
+	/**
+	 * Adds a weighted edge between the specified vertices with the given weight.
 	 * @param v1     the first vertex
 	 * @param v2     the second vertex
 	 * @param weight the weight of the edge
@@ -550,7 +560,7 @@ class GraphView extends JFrame {
 	 */
 	public GraphView() {
 		super.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		int minSize = 500;
+		int minSize = 350;
 		super.setSize(minSize + (minSize * 3/4), minSize);
 		super.setLocationRelativeTo(null);
 
@@ -590,42 +600,6 @@ class GraphView extends JFrame {
 		return drawingPanel;
 	}
 
-	 /**
-	 * Creates a default graph if no graph is loaded.
-	 * @return the created default graph
-	 */
-	private Graph<Vertex> getDefaultGraph() {
-		Vertex[] vertices = {
-				new Vertex("A", 50, 10),
-				new Vertex("B", 10, 40),
-				new Vertex("C", 50, 60),
-				new Vertex("D", 90, 40),
-				new Vertex("E", 10, 80),
-				new Vertex("F", 50, 110),
-				new Vertex("G", 90, 80)
-		};
-
-		Graph<Vertex> graph = new UndirectedGraph<>();
-
-		for (Vertex vertex : vertices) {
-			graph.addVertex(vertex);
-		}
-
-		graph.addEdge(vertices[0], vertices[1], 1);
-		graph.addEdge(vertices[0], vertices[2], 1);
-		graph.addEdge(vertices[0], vertices[3], 10);
-		graph.addEdge(vertices[1], vertices[2], 16);
-		graph.addEdge(vertices[2], vertices[3], 8);
-		graph.addEdge(vertices[2], vertices[4], 4);
-		graph.addEdge(vertices[2], vertices[5], 9);
-		graph.addEdge(vertices[2], vertices[6], 14);
-		graph.addEdge(vertices[3], vertices[6], 17);
-		graph.addEdge(vertices[4], vertices[5], 6);
-		graph.addEdge(vertices[5], vertices[6], 2);
-
-		return graph;
-	}
-
 	/**
 	 * Sets up the menu bar for the application.
 	 */
@@ -655,15 +629,14 @@ class GraphView extends JFrame {
 		// Traverse menu
 		JMenu traverseMenu = new JMenu("Traversal");
 		traverseMenu.add(createMenuItem("Clear", this::clearTraversal));
-		traverseMenu.add(createMenuItem("Show BFS", this::performBFS));
-		traverseMenu.add(createMenuItem("Show DFS",	this::performDFS));
-		traverseMenu.add(createMenuItem("Show MST", this::performMST));
-		traverseMenu.add(createMenuItem("Show Path", this::findShortestPath));
+		traverseMenu.add(createMenuItem("Breadth First Search", this::performBFS));
+		traverseMenu.add(createMenuItem("Depth First Search",	this::performDFS));
+		traverseMenu.add(createMenuItem("Minimum Spanning Tree", this::performMST));
+		traverseMenu.add(createMenuItem("Shortest Path", this::findShortestPath));
 
 		JMenu settingsMenu = new JMenu("View Settings");
+		settingsMenu.add(createCheckboxMenuItem("Show Edge Weights", this::toggleShowWeights, false));
 		settingsMenu.add(createCheckboxMenuItem("Show Dark Mode", this::toggleDarkMode, paintManager.getCurrentTheme() == ColorManager.ColorTheme.DARK));
-		settingsMenu.add(createCheckboxMenuItem("Show undirected", this::toggleGraphType, displayedGraph instanceof UndirectedGraph));
-		settingsMenu.add(createCheckboxMenuItem("Show Weights", this::toggleShowWeights, false));
 
 		menuBar.setLayout(new FlowLayout(FlowLayout.LEFT));
 		menuBar.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -1004,14 +977,18 @@ class GraphView extends JFrame {
 	 * @param e the action event
 	 */
 	private void performDFS(ActionEvent e) {
-		String vertexLabel = JOptionPane.showInputDialog(this, "Enter the starting vertex for DFS:");
-		Optional<Vertex> vertex = findVertexByLabel(vertexLabel);
-		if (vertex.isPresent()) {
-			path = displayedGraph.dfs(vertex.get());
-			drawingPanel.repaint();
-			JOptionPane.showMessageDialog(this, String.format("DFS from %s displayed.", vertexLabel));
-		} else {
-			JOptionPane.showMessageDialog(this, "Vertex not found.", "Error", JOptionPane.ERROR_MESSAGE);
+		String vertexLabel = JOptionPane.showInputDialog(this, "Enter the starting vertex for DFS:", "Display Depth First Search", JOptionPane.PLAIN_MESSAGE);
+		if (vertexLabel != null && !vertexLabel.isBlank()) {
+			clearTraversal(e);
+
+			Optional<Vertex> vertex = findVertexByLabel(vertexLabel);
+			if (vertex.isPresent()) {
+				path = displayedGraph.dfs(vertex.get());
+				drawingPanel.repaint();
+				JOptionPane.showMessageDialog(this, String.format("DFS from %s displayed.", vertexLabel));
+			} else {
+				JOptionPane.showMessageDialog(this, "Vertex not found.", "Error", JOptionPane.ERROR_MESSAGE);
+			}
 		}
 	}
 
@@ -1020,14 +997,18 @@ class GraphView extends JFrame {
 	 * @param e the action event
 	 */
 	private void performBFS(ActionEvent e) {
-		String vertexLabel = JOptionPane.showInputDialog(this, "Enter the starting vertex for BFS:");
-		Optional<Vertex> vertex = findVertexByLabel(vertexLabel);
-		if (vertex.isPresent()) {
-			path = displayedGraph.bfs(vertex.get());
-			drawingPanel.repaint();
-			JOptionPane.showMessageDialog(this, String.format("BFS from %s displayed.", vertexLabel));
-		} else {
-			JOptionPane.showMessageDialog(this, "Vertex not found.", "Error", JOptionPane.ERROR_MESSAGE);
+		String vertexLabel = JOptionPane.showInputDialog(this, "Enter the starting vertex for BFS:", "Display Breadth First Search", JOptionPane.PLAIN_MESSAGE);
+		if (vertexLabel != null && !vertexLabel.isBlank()) {
+			clearTraversal(e);
+
+			Optional<Vertex> vertex = findVertexByLabel(vertexLabel);
+			if (vertex.isPresent()) {
+				path = displayedGraph.bfs(vertex.get());
+				drawingPanel.repaint();
+				JOptionPane.showMessageDialog(this, String.format("BFS from %s displayed.", vertexLabel));
+			} else {
+				JOptionPane.showMessageDialog(this, "Vertex not found.", "Error", JOptionPane.ERROR_MESSAGE);
+			}
 		}
 	}
 
@@ -1036,8 +1017,10 @@ class GraphView extends JFrame {
 	 * @param e the action event
 	 */
 	private void performMST(ActionEvent e) {
-		String startVertexLabel = JOptionPane.showInputDialog(this, "Enter start vertex label for MST:");
+		String startVertexLabel = JOptionPane.showInputDialog(this, "Enter starting vertex for MST:", "Display Minimum Spanning Tree", JOptionPane.PLAIN_MESSAGE);
 		if (startVertexLabel != null && !startVertexLabel.isBlank()) {
+			clearTraversal(e);
+
 			try {
 				Vertex startVertex = findVertexByLabel(startVertexLabel).orElseThrow(() -> new IllegalArgumentException("Vertex not found."));
 				displayedGraph = originalGraph.minimumSpanningTree(startVertex); // Temporarily display the MST
@@ -1070,44 +1053,19 @@ class GraphView extends JFrame {
 			Optional<Vertex> startVertex = findVertexByLabel(startLabel);
 			Optional<Vertex> endVertex = findVertexByLabel(endLabel);
 
+			clearTraversal(e);
+
 			if (startVertex.isPresent() && endVertex.isPresent()) {
 				path = displayedGraph.shortestPath(startVertex.get(), endVertex.get());
-				drawingPanel.repaint();
-				JOptionPane.showMessageDialog(this, String.format("Shortest path from %s to %s displayed.", startLabel, endLabel));
+				if (path.isEmpty()) {
+					JOptionPane.showMessageDialog(this, String.format("No path from %s to %s.", startLabel, endLabel));
+				} else {
+					drawingPanel.repaint();
+					JOptionPane.showMessageDialog(this, String.format("Shortest path from %s to %s displayed.", startLabel, endLabel));
+				}
 			} else {
 				JOptionPane.showMessageDialog(this, "One or both vertices not found.", "Error", JOptionPane.ERROR_MESSAGE);
 			}
-		}
-	}
-
-	/**
-	 * Serializes the current graph to a file.
-	 * @param graph the graph to serialize
-	 * @param filePath the file path to save the graph
-	 * @return true if the graph was saved successfully, false otherwise
-	 */
-	private boolean serializeGraph(Graph<Vertex> graph, String filePath) {
-		try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(filePath))) {
-			out.writeObject(graph);
-			JOptionPane.showMessageDialog(this, "Graph saved successfully!", "Graph Saved", JOptionPane.INFORMATION_MESSAGE);
-			return true;
-		} catch (IOException ex) {
-			JOptionPane.showMessageDialog(this, "Error saving file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-			return false;
-		}
-	}
-
-	/**
-	 * Deserializes a graph from a file.
-	 * @param filePath the file path to open the graph
-	 * @return the deserialized graph, or null if an error occurred
-	 */
-	private Graph<Vertex> deserializeGraph(String filePath) {
-		try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(filePath))) {
-			return (Graph<Vertex>) in.readObject();
-		} catch (IOException | ClassNotFoundException ex) {
-			JOptionPane.showMessageDialog(this, "Error opening file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-			return null;
 		}
 	}
 
@@ -1146,48 +1104,110 @@ class GraphView extends JFrame {
 	}
 
 	/**
-	 * Toggles the type of the displayed graph between directed and undirected.
+	 * Serializes the current graph to a file.
+	 * @param graph the graph to serialize
+	 * @param filePath the file path to save the graph
+	 * @return true if the graph was saved successfully, false otherwise
 	 */
-	private void toggleGraphType(ActionEvent e) {
-		if (displayedGraph instanceof UndirectedGraph) {
-			displayedGraph = convertToDirectedGraph((UndirectedGraph<Vertex>) displayedGraph);
-		} else if (displayedGraph instanceof DirectedGraph) {
-			displayedGraph = convertToUndirectedGraph((DirectedGraph<Vertex>) displayedGraph);
+	private boolean serializeGraph(Graph<Vertex> graph, String filePath) {
+		try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(filePath))) {
+			out.writeObject(graph);
+			JOptionPane.showMessageDialog(this, "Graph saved successfully!", "Graph Saved", JOptionPane.INFORMATION_MESSAGE);
+			return true;
+		} catch (IOException ex) {
+			JOptionPane.showMessageDialog(this, "Error saving file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+			return false;
 		}
-		drawingPanel.repaint();
-	}
-
-
-	/**
-	 * Converts an undirected graph to a directed graph.
-	 * @param undirectedGraph the undirected graph
-	 * @return the converted directed graph
-	 */
-	private Graph<Vertex> convertToDirectedGraph(UndirectedGraph<Vertex> undirectedGraph) {
-		DirectedGraph<Vertex> directedGraph = new DirectedGraph<>();
-		for (Vertex vertex : undirectedGraph.getVertices()) {
-			directedGraph.addVertex(vertex);
-		}
-		for (Edge<Vertex, Vertex> edge : undirectedGraph.getEdges()) {
-			directedGraph.addEdge(edge.SOURCE, edge.DESTINATION, edge.weight);
-		}
-		return directedGraph;
 	}
 
 	/**
-	 * Converts a directed graph to an undirected graph.
-	 * @param directedGraph the directed graph
-	 * @return the converted undirected graph
+	 * Deserializes a graph from a file.
+	 * @param filePath the file path to open the graph
+	 * @return the deserialized graph, or null if an error occurred
 	 */
-	private Graph<Vertex> convertToUndirectedGraph(DirectedGraph<Vertex> directedGraph) {
-		UndirectedGraph<Vertex> undirectedGraph = new UndirectedGraph<>();
-		for (Vertex vertex : directedGraph.getVertices()) {
-			undirectedGraph.addVertex(vertex);
+	private Graph<Vertex> deserializeGraph(String filePath) {
+		try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(filePath))) {
+			return (Graph<Vertex>) in.readObject();
+		} catch (IOException | ClassNotFoundException ex) {
+			JOptionPane.showMessageDialog(this, "Error opening file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+			return null;
 		}
-		for (Edge<Vertex, Vertex> edge : directedGraph.getEdges()) {
-			undirectedGraph.addEdge(edge.SOURCE, edge.DESTINATION, edge.weight);
+	}
+
+	/**
+	 * Creates a default graph if no graph is loaded.
+	 * @return the created default graph
+	 */
+	private Graph<Vertex> getDefaultGraph() {
+		Random random = new Random();
+		int randomNumber = random.nextInt(100); // Generates a random number between 0 and 10
+		return (randomNumber % 2 != 0) ? getDefaultUndirectedGraph() : getDefaultDirectedGraph();
+	}
+
+	/**
+	 * Creates a default undirected graph if no graph is loaded.
+	 * @return the created default undirected graph
+	 */
+	private Graph<Vertex> getDefaultUndirectedGraph() {
+		Map<Character, Vertex> vertexMap = new HashMap<>();
+
+		vertexMap.put('A', new Vertex("A", 50, 10));
+		vertexMap.put('B', new Vertex("B", 10, 30));
+		vertexMap.put('C', new Vertex("C", 50, 50));
+		vertexMap.put('D', new Vertex("D", 90, 30));
+		vertexMap.put('E', new Vertex("E", 10, 70));
+		vertexMap.put('F', new Vertex("F", 50, 95));
+		vertexMap.put('G', new Vertex("G", 90, 70));
+
+		Graph<Vertex> graph = new UndirectedGraph<>();
+
+		for (Vertex vertex : vertexMap.values()) {
+			graph.addVertex(vertex);
 		}
-		return undirectedGraph;
+
+		graph.addEdge(vertexMap.get('A'), vertexMap.get('B'), 1);
+		graph.addEdge(vertexMap.get('A'), vertexMap.get('C'), 20);
+		graph.addEdge(vertexMap.get('A'), vertexMap.get('D'), 10);
+		graph.addEdge(vertexMap.get('B'), vertexMap.get('C'), 16);
+		graph.addEdge(vertexMap.get('C'), vertexMap.get('D'), 8);
+		graph.addEdge(vertexMap.get('C'), vertexMap.get('E'), 4);
+		graph.addEdge(vertexMap.get('C'), vertexMap.get('F'), 9);
+		graph.addEdge(vertexMap.get('C'), vertexMap.get('G'), 14);
+		graph.addEdge(vertexMap.get('D'), vertexMap.get('G'), 17);
+		graph.addEdge(vertexMap.get('E'), vertexMap.get('F'), 6);
+		graph.addEdge(vertexMap.get('F'), vertexMap.get('G'), 2);
+
+		return graph;
+	}
+
+	/**
+	 * Creates a default directed graph if no graph is loaded.
+	 * @return the created default directed graph
+	 */
+	private Graph<Vertex> getDefaultDirectedGraph() {
+		Map<Character, Vertex> vertexMap = new HashMap<>();
+
+		vertexMap.put('A', new Vertex("A", 0, 15));
+		vertexMap.put('B', new Vertex("B", 20, 5));
+		vertexMap.put('C', new Vertex("C", 40, 5));
+		vertexMap.put('D', new Vertex("D", 20, 25));
+		vertexMap.put('E', new Vertex("E", 40, 25));
+
+		Graph<Vertex> graph = new DirectedGraph<>();
+
+		for (Vertex vertex : vertexMap.values()) {
+			graph.addVertex(vertex);
+		}
+
+		graph.addEdge(vertexMap.get('A'), vertexMap.get('B'));
+		graph.addEdge(vertexMap.get('A'), vertexMap.get('D'));
+		graph.addEdge(vertexMap.get('B'), vertexMap.get('C'));
+		graph.addEdge(vertexMap.get('B'), vertexMap.get('E'));
+		graph.addEdge(vertexMap.get('C'), vertexMap.get('E'));
+		graph.addEdge(vertexMap.get('D'), vertexMap.get('B'));
+		graph.addEdge(vertexMap.get('D'), vertexMap.get('E'));
+
+		return graph;
 	}
 
 	/**
@@ -1200,16 +1220,6 @@ class GraphView extends JFrame {
 			ui.setVisible(true);
 		});
 	}
-
-
-
-
-
-
-
-
-
-
 
 
 	/**
@@ -1259,15 +1269,6 @@ class GraphView extends JFrame {
 			return Point.distance(x, y, other.x, other.y);
 		}
 	}
-
-
-
-
-
-
-
-
-
 
 
 	/**
@@ -1341,14 +1342,6 @@ class GraphView extends JFrame {
 			currentTheme = (currentTheme == ColorTheme.DARK) ? ColorTheme.LIGHT : ColorTheme.DARK;
 		}
 	}
-
-
-
-
-
-
-
-
 
 
 	/**
@@ -1495,7 +1488,7 @@ class GraphView extends JFrame {
 			}
 
 			if (showWeights) {
-				String weight = String.format("%.2f", edge.weight);
+				String weight = String.format("%d",(int) edge.weight);
 				int mx = (x1 + x2) / 2;
 				int my = (y1 + y2) / 2;
 				g2d.drawString(weight, mx, my);
