@@ -1281,7 +1281,7 @@ class GraphView extends JFrame {
 		 */
 		public enum ColorTheme {LIGHT, DARK}
 
-		private ColorTheme currentTheme = ColorTheme.LIGHT; // Default theme;
+		private ColorTheme currentTheme = ColorTheme.DARK; // Default theme;
 
 		// Color constants
 		private final Color PANEL_DARK_BACKGROUND_COLOR = new Color(43, 45, 48);
@@ -1350,7 +1350,7 @@ class GraphView extends JFrame {
 	 * @author Daniel Tongu
 	 */
 	static class PaintManager<T extends Vertex> extends ColorManager {
-		final int vertexDiameter = 27;
+		final int vertexDiameter = 30;
 		protected boolean showWeights;
 
 		/**
