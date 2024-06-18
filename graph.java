@@ -3,68 +3,10 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.geom.Ellipse2D;
-import java.awt.geom.Line2D;
 import java.io.*;
 import java.util.*;
 import java.util.List;
 import java.util.Objects;
-
-
-/**
- * The Edge class represents an edge in a graph with a source, destination, and weight.
- * @param <U> the type of the source vertex
- * @param <V> the type of the destination vertex
- *
- * @author Daniel Tongu
- */
-final class Edge<U, V> implements Serializable {
-	final U SOURCE;
-	final V DESTINATION;
-	double weight;
-
-	/**
-	 * Constructs an Edge with the specified source, destination, and weight.
-	 * @param source      the source vertex
-	 * @param destination the destination vertex
-	 * @param weight      the weight of the edge
-	 */
-	public Edge(U source, V destination, double weight) {
-		this.SOURCE = source;
-		this.DESTINATION = destination;
-		this.weight = weight;
-	}
-
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) return true;
-		if (o == null || getClass() != o.getClass()) return false;
-		Edge<?, ?> edge = (Edge<?, ?>) o;
-		return Double.compare(edge.weight, weight) == 0 &&
-				Objects.equals(SOURCE, edge.SOURCE) &&
-				Objects.equals(DESTINATION, edge.DESTINATION);
-	}
-
-	@Override
-	public int hashCode() {
-		return Objects.hash(SOURCE, DESTINATION, weight);
-	}
-
-	@Override
-	public String toString() {
-		return "Edge{" +
-				"source=" + SOURCE +
-				", destination=" + DESTINATION +
-				", weight=" + weight +
-				'}';
-	}
-}
-
-
-
-
-
-
-
 
 
 /**
@@ -77,57 +19,17 @@ public abstract class Graph<T> implements Serializable {
 	protected final Map<T, Set<Edge<T, T>>> vertices = new HashMap<>();
 
 	/**
-	 * Copies the vertices and edges from the specified graph into this graph.
-	 * @param other the graph to copy from
-	 */
-	public void copyFrom(Graph<T> other) {
-		this.vertices.clear();
-		other.vertices.forEach((vertex, edges) -> {
-			Set<Edge<T, T>> newEdges = new HashSet<>();
-			for (Edge<T, T> edge : edges) {
-				newEdges.add(new Edge<>(vertex, edge.DESTINATION, edge.weight));
-			}
-			this.vertices.put(vertex, newEdges);
-		});
-	}
-
-	/**
-	 * Returns the minimum spanning tree of the graph starting from the specified vertex.
-	 * @param start the starting vertex
-	 * @return the minimum spanning tree
-	 */
-	public abstract Graph<T> minimumSpanningTree(T start);
-
-	/**
-	 * Returns the degree of the specified vertex.
-	 * @param vertex the vertex
-	 * @return the degree of the vertex
-	 */
-	public int getDegree(T vertex) {
-		return vertices.getOrDefault(vertex, Collections.emptySet()).size();
-	}
-
-	/**
 	 * Returns whether the graph is directed.
 	 * @return true if the graph is directed, false otherwise
 	 */
 	public abstract boolean isDirected();
 
 	/**
-	 * Returns whether the graph is empty.
-	 * @return true if the graph is empty, false otherwise
+	 * Returns the number of vertices in the graph.
+	 * @return the number of vertices
 	 */
-	public boolean isEmpty() {
-		return vertices.isEmpty();
-	}
-
-	/**
-	 * Returns whether the graph contains the specified vertex.
-	 * @param vertex the vertex
-	 * @return true if the graph contains the vertex, false otherwise
-	 */
-	public boolean containsVertex(T vertex) {
-		return vertices.containsKey(vertex);
+	public int size() {
+		return vertices.size();
 	}
 
 	/**
@@ -152,7 +54,7 @@ public abstract class Graph<T> implements Serializable {
 		if (!vertices.containsKey(vertex)) {
 			return false;
 		}
-		vertices.values().forEach(edges -> edges.removeIf(edge -> edge.DESTINATION.equals(vertex)));
+		vertices.values().forEach(edges -> edges.removeIf(edge -> edge.SECOND.equals(vertex)));
 		vertices.remove(vertex);
 		return true;
 	}
@@ -166,34 +68,32 @@ public abstract class Graph<T> implements Serializable {
 	}
 
 	/**
-	 * Returns whether the specified vertices are neighbors.
-	 * @param v1 the first vertex
-	 * @param v2 the second vertex
-	 * @return true if the vertices are neighbors, false otherwise
+	 * Returns the set of edges connected to the specified vertex.
+	 * @param vertex the vertex
+	 * @return the set of edges connected to the vertex
 	 */
-	public boolean areNeighbors(T v1, T v2) {
-		return getVertexEdges(v1).stream().anyMatch(edge -> edge.DESTINATION.equals(v2)) ||
-				getVertexEdges(v2).stream().anyMatch(edge -> edge.DESTINATION.equals(v1));
+	public Set<Edge<T, T>> getVertexEdges(T vertex) {
+		return vertices.getOrDefault(vertex, Collections.emptySet());
 	}
 
 	/**
-	 * Adds an unweighted edge between the specified vertices.
-	 * @param v1     the first vertex
-	 * @param v2     the second vertex
+	 * Adds a weighted edge between the specified vertices with the given weight.
+	 * @param v1 the first vertex
+	 * @param v2 the second vertex
+	 * @param weight the weight of the edge
+	 * @return true if the edge was added, false if it already existed
+	 */
+	public abstract boolean addEdge(T v1, T v2, double weight);
+
+	/**
+	 * Adds an edge between the specified vertices with a default weight of zero.
+	 * @param v1 the first vertex
+	 * @param v2 the second vertex
 	 * @return true if the edge was added, false if it already existed
 	 */
 	public boolean addEdge(T v1, T v2) {
 		return addEdge(v1, v2, 0);
 	}
-
-	/**
-	 * Adds a weighted edge between the specified vertices with the given weight.
-	 * @param v1     the first vertex
-	 * @param v2     the second vertex
-	 * @param weight the weight of the edge
-	 * @return true if the edge was added, false if it already existed
-	 */
-	public abstract boolean addEdge(T v1, T v2, double weight);
 
 	/**
 	 * Removes the edge between the specified vertices.
@@ -204,39 +104,10 @@ public abstract class Graph<T> implements Serializable {
 	public abstract boolean removeEdge(T v1, T v2);
 
 	/**
-	 * Returns whether there is an edge between the specified vertices.
-	 * @param v1 the first vertex
-	 * @param v2 the second vertex
-	 * @return true if there is an edge between the vertices, false otherwise
-	 */
-	public boolean containsEdge(T v1, T v2) {
-		if (vertices.containsKey(v1)) {
-			return vertices.get(v1).stream().anyMatch(edge -> edge.DESTINATION.equals(v2));
-		}
-		return false;
-	}
-
-	/**
-	 * Determines whether an edge should be added between the specified vertices.
-	 * @param v1 the first vertex
-	 * @param v2 the second vertex
-	 * @return true if the edge should be added, false otherwise
-	 */
-	protected abstract boolean shouldAddEdge(T v1, T v2);
-
-	/**
 	 * Returns a list of all edges in the graph.
 	 * @return a list of all edges
 	 */
-	public List<Edge<T, T>> getEdges() {
-		List<Edge<T, T>> edges = new ArrayList<>();
-		vertices.forEach((v1, connectedEdges) -> connectedEdges.forEach(edge -> {
-			if (shouldAddEdge(v1, edge.DESTINATION)) {
-				edges.add(new Edge<>(v1, edge.DESTINATION, edge.weight));
-			}
-		}));
-		return edges;
-	}
+	public abstract List<Edge<T, T>> getEdges();
 
 	/**
 	 * Returns the weight of the edge between the specified vertices.
@@ -245,74 +116,55 @@ public abstract class Graph<T> implements Serializable {
 	 * @return the weight of the edge, or NaN if no edge exists
 	 */
 	public double getEdgeWeight(T t1, T t2) {
-		double weight = checkEdgeWeight(t1, t2);
-		if (!Double.isNaN(weight)) {
-			return weight;
-		}
-		return checkEdgeWeight(t2, t1);
-	}
-
-	/**
-	 * Checks the weight of the edge from the source vertex to the destination vertex.
-	 * @param source the source vertex
-	 * @param dest   the destination vertex
-	 * @return the weight of the edge, or NaN if no edge exists
-	 */
-	private double checkEdgeWeight(T source, T dest) {
-		if (vertices.containsKey(source)) {
-			for (Edge<T, T> edge : vertices.get(source)) {
-				if (edge.DESTINATION.equals(dest)) {
+		if (vertices.containsKey(t1)) {
+			for (Edge<T, T> edge : vertices.get(t1)) {
+				if (edge.SECOND.equals(t2)) {
 					return edge.weight;
 				}
 			}
 		}
 		return Double.NaN;
 	}
-
-	/**
-	 * Returns the set of edges connected to the specified vertex.
-	 * @param vertex the vertex
-	 * @return the set of edges connected to the vertex
-	 */
-	public Set<Edge<T, T>> getVertexEdges(T vertex) {
-		return vertices.getOrDefault(vertex, Collections.emptySet());
-	}
-
 	/**
 	 * Performs a depth-first search (DFS) starting from the specified vertex.
 	 * @param startVertex the starting vertex
 	 * @return a list of edges in the order they were visited
 	 */
 	public List<Edge<T, T>> dfs(T startVertex) {
-		List<Edge<T, T>> edgeList = new ArrayList<>();
-		if (!vertices.containsKey(startVertex)) {
-			return edgeList;
-		}
+		List<Edge<T, T>> dfsList = new ArrayList<>();
 
-		Stack<Edge<T, T>> stack = new Stack<>();
-		Set<T> seen = new HashSet<>();
+		if (vertices.containsKey(startVertex)) {
+			Set<T> visited = new HashSet<>();
+			Stack<Edge<T, T>> edgeStack = new Stack<>();
+			addEdgesToStack(visited, edgeStack, startVertex);
 
-		seen.add(startVertex);
-		List<Edge<T, T>> edges = new ArrayList<>(vertices.get(startVertex));
-		edges.sort(Comparator.comparingDouble(e -> e.hashCode()).reversed());
-		for (Edge<T, T> edge : edges) {
-			stack.push(edge);
-		}
-
-		while (!stack.isEmpty()) {
-			Edge<T, T> edge = stack.pop();
-			T vertex = edge.DESTINATION;
-			if (!seen.contains(vertex)) {
-				seen.add(vertex);
-				edgeList.add(edge);
-				edges = new ArrayList<>(vertices.get(vertex));
-				edges.sort(Comparator.comparingDouble(e -> e.hashCode()).reversed());
-				for (Edge<T, T> e : edges) {
-					stack.push(e);
+			while (!edgeStack.isEmpty()) {
+				Edge<T, T> currentEdge = edgeStack.pop();
+				T currentVertex = currentEdge.SECOND;
+				if (!visited.contains(currentVertex)) {
+					addEdgesToStack(visited, edgeStack, currentVertex);
+					dfsList.add(currentEdge);
 				}
 			}
 		}
-		return edgeList;
+
+		return dfsList;
+	}
+
+	/**
+	 * Adds the edges of the current vertex to the stack and marks the vertex as visited.
+	 * @param visited the set of visited vertices
+	 * @param edgeStack the stack of edges to be processed
+	 * @param currentVertex the current vertex whose edges are to be added to the stack
+	 */
+	private void addEdgesToStack(Set<T> visited, Stack<Edge<T, T>> edgeStack, T currentVertex) {
+		visited.add(currentVertex);
+		Comparator<Edge<T, T>> comparator = Comparator.comparingInt(edge -> edge.SECOND.hashCode());
+		PriorityQueue<Edge<T, T>> currentVertexEdges = new PriorityQueue<>(comparator.reversed());
+		currentVertexEdges.addAll(vertices.get(currentVertex));
+		for (Edge<T, T> edge : currentVertexEdges) {
+			edgeStack.push(edge);
+		}
 	}
 
 	/**
@@ -325,17 +177,18 @@ public abstract class Graph<T> implements Serializable {
 		if (!vertices.containsKey(startVertex)) {
 			return edgeList;
 		}
-		Queue<T> queue = new LinkedList<>();
+		Queue<T> queue = new PriorityQueue<>(Comparator.comparingInt(Object::hashCode));
 		queue.add(startVertex);
 		Set<T> seen = new HashSet<>();
 		seen.add(startVertex);
 
 		while (!queue.isEmpty()) {
-			T current = queue.poll();
-			List<Edge<T, T>> edges = new ArrayList<>(vertices.get(current));
-			edges.sort(Comparator.comparingInt(edge -> edge.DESTINATION.hashCode()));
-			for (Edge<T, T> edge : edges) {
-				T neighbor = edge.DESTINATION;
+			T currentVertex = queue.poll();
+			Queue<Edge<T, T>> currentVertexEdges = new PriorityQueue<>(Comparator.comparingInt(edge -> edge.SECOND.hashCode()));
+			currentVertexEdges.addAll(vertices.get(currentVertex));
+
+			for (Edge<T, T> edge : currentVertexEdges) {
+				T neighbor = edge.SECOND;
 				if (!seen.contains(neighbor)) {
 					seen.add(neighbor);
 					queue.add(neighbor);
@@ -372,7 +225,7 @@ public abstract class Graph<T> implements Serializable {
 			}
 
 			for (Edge<T, T> edge : vertices.get(current)) {
-				T neighbor = edge.DESTINATION;
+				T neighbor = edge.SECOND;
 				double newDistance = distances.get(current) + edge.weight;
 				if (newDistance < distances.get(neighbor)) {
 					distances.put(neighbor, newDistance);
@@ -413,8 +266,15 @@ public abstract class Graph<T> implements Serializable {
 	 * @return the edge, or null if no edge exists
 	 */
 	private Edge<T, T> findEdge(T v1, T v2) {
-		return getVertexEdges(v1).stream().filter(edge -> edge.DESTINATION.equals(v2)).findFirst().orElse(null);
+		return getVertexEdges(v1).stream().filter(edge -> edge.SECOND.equals(v2)).findFirst().orElse(null);
 	}
+
+	/**
+	 * Returns the minimum spanning tree of the graph starting from the specified vertex.
+	 * @param start the starting vertex
+	 * @return the minimum spanning tree
+	 */
+	public abstract Graph<T> minimumSpanningTree(T start);
 }
 
 
@@ -438,6 +298,49 @@ class UndirectedGraph<T> extends Graph<T> {
 	}
 
 	@Override
+	public boolean addEdge(T v1, T v2, double weight) {
+		if (v1.equals(v2)) {
+			throw new IllegalArgumentException("No self-loops allowed.");
+		}
+		super.vertices.putIfAbsent(v1, new HashSet<>());
+		super.vertices.putIfAbsent(v2, new HashSet<>());
+		boolean addedV1 = super.vertices.get(v1).add(new Edge<>(v1, v2, weight));
+		boolean addedV2 = super.vertices.get(v2).add(new Edge<>(v2, v1, weight));
+		return addedV1 && addedV2;
+	}
+
+	@Override
+	public boolean removeEdge(T v1, T v2) {
+		boolean removedV1 = super.vertices.containsKey(v1) && super.vertices.get(v1).removeIf(edge -> edge.SECOND.equals(v2));
+		boolean removedV2 = super.vertices.containsKey(v2) && super.vertices.get(v2).removeIf(edge -> edge.SECOND.equals(v1));
+		return removedV1 && removedV2;
+	}
+
+	@Override
+	public List<Edge<T, T>> getEdges() {
+		List<Edge<T, T>> edges = new ArrayList<>();
+		Set<String> seenEdges = new HashSet<>(); // To avoid duplicating edges
+		vertices.forEach((v1, connectedEdges) -> connectedEdges.forEach(edge -> {
+			String edgeIdentifier = v1.hashCode() <= edge.SECOND.hashCode() ? v1 + ":" + edge.SECOND : edge.SECOND + ":" + v1;
+			if (!seenEdges.contains(edgeIdentifier)) {
+				edges.add(new Edge<>(v1, edge.SECOND, edge.weight));
+				seenEdges.add(edgeIdentifier);
+			}
+		}));
+		return edges;
+	}
+
+	@Override
+	public double getEdgeWeight(T t1, T t2) {
+		double weight = super.getEdgeWeight(t1, t2);
+		if (!Double.isNaN(weight)) {
+			return weight;
+		}
+		return super.getEdgeWeight(t2, t1);
+	}
+
+
+	@Override
 	public Graph<T> minimumSpanningTree(T start) {
 		if (!super.vertices.containsKey(start)) {
 			throw new IllegalArgumentException("Start vertex does not exist in the graph.");
@@ -454,44 +357,20 @@ class UndirectedGraph<T> extends Graph<T> {
 
 		while (!edgeQueue.isEmpty()) {
 			Edge<T, T> edge = edgeQueue.poll();
-			if (added.contains(edge.DESTINATION)) continue;
+			if (added.contains(edge.SECOND)) continue;
 
-			mst.addVertex(edge.DESTINATION);
-			mst.addEdge(edge.SOURCE, edge.DESTINATION, edge.weight);
-			added.add(edge.DESTINATION);
+			mst.addVertex(edge.SECOND);
+			mst.addEdge(edge.FIRST, edge.SECOND, edge.weight);
+			added.add(edge.SECOND);
 
-			for (Edge<T, T> newEdge : super.vertices.get(edge.DESTINATION)) {
-				if (!added.contains(newEdge.DESTINATION)) {
+			for (Edge<T, T> newEdge : super.vertices.get(edge.SECOND)) {
+				if (!added.contains(newEdge.SECOND)) {
 					edgeQueue.add(newEdge);
 				}
 			}
 		}
 
 		return mst;
-	}
-
-	@Override
-	public boolean addEdge(T v1, T v2, double weight) {
-		if (v1.equals(v2)) {
-			throw new IllegalArgumentException("No self-loops allowed.");
-		}
-		super.vertices.putIfAbsent(v1, new HashSet<>());
-		super.vertices.putIfAbsent(v2, new HashSet<>());
-		boolean addedV1 = super.vertices.get(v1).add(new Edge<>(v1, v2, weight));
-		boolean addedV2 = super.vertices.get(v2).add(new Edge<>(v2, v1, weight));
-		return addedV1 && addedV2;
-	}
-
-	@Override
-	public boolean removeEdge(T v1, T v2) {
-		boolean removedV1 = super.vertices.containsKey(v1) && super.vertices.get(v1).removeIf(edge -> edge.DESTINATION.equals(v2));
-		boolean removedV2 = super.vertices.containsKey(v2) && super.vertices.get(v2).removeIf(edge -> edge.DESTINATION.equals(v1));
-		return removedV1 && removedV2;
-	}
-
-	@Override
-	protected boolean shouldAddEdge(T v1, T v2) {
-		return v1.hashCode() <= v2.hashCode();
 	}
 }
 
@@ -514,11 +393,6 @@ class DirectedGraph<T> extends Graph<T> {
 	}
 
 	@Override
-	public Graph<T> minimumSpanningTree(T start) {
-		throw new UnsupportedOperationException("MST is not typically defined for directed graphs.");
-	}
-
-	@Override
 	public boolean addEdge(T v1, T v2, double weight) {
 		super.vertices.putIfAbsent(v1, new HashSet<>());
 		super.vertices.putIfAbsent(v2, new HashSet<>());
@@ -527,12 +401,75 @@ class DirectedGraph<T> extends Graph<T> {
 
 	@Override
 	public boolean removeEdge(T v1, T v2) {
-		return super.vertices.containsKey(v1) && super.vertices.get(v1).removeIf(edge -> edge.DESTINATION.equals(v2));
+		return super.vertices.containsKey(v1) && super.vertices.get(v1).removeIf(edge -> edge.SECOND.equals(v2));
 	}
 
 	@Override
-	protected boolean shouldAddEdge(T v1, T v2) {
-		return true;
+	public List<Edge<T, T>> getEdges() {
+		List<Edge<T, T>> edges = new ArrayList<>();
+		vertices.forEach((v1, connectedEdges) -> connectedEdges.forEach(edge -> {
+			edges.add(new Edge<>(v1, edge.SECOND, edge.weight));
+		}));
+		return edges;
+	}
+
+	@Override
+	public Graph<T> minimumSpanningTree(T start) {
+		throw new UnsupportedOperationException("MST is not typically defined for directed graphs.");
+	}
+}
+
+
+
+
+
+
+/**
+ * The Edge class represents an edge in a graph with a source, destination, and weight.
+ * @param <U> the type of the source vertex
+ * @param <V> the type of the destination vertex
+ *
+ * @author Daniel Tongu
+ */
+final class Edge<U, V> implements Serializable {
+	final U FIRST;
+	final V SECOND;
+	double weight;
+
+	/**
+	 * Constructs an Edge with the specified first, second, and weight.
+	 * @param first      the first vertex
+	 * @param second the second vertex
+	 * @param weight      the weight of the edge
+	 */
+	public Edge(U first, V second, double weight) {
+		this.FIRST = first;
+		this.SECOND = second;
+		this.weight = weight;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		Edge<?, ?> edge = (Edge<?, ?>) o;
+		return Double.compare(edge.weight, weight) == 0 &&
+				Objects.equals(FIRST, edge.FIRST) &&
+				Objects.equals(SECOND, edge.SECOND);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(FIRST, SECOND, weight);
+	}
+
+	@Override
+	public String toString() {
+		return "Edge{" +
+				"source=" + FIRST +
+				", destination=" + SECOND +
+				", weight=" + weight +
+				'}';
 	}
 }
 
@@ -601,81 +538,106 @@ class GraphView extends JFrame {
 	}
 
 	/**
+	 * Creates a menu with the given name and checkbox items.
+	 * @param menuName The name of the menu.
+	 * @param items Varargs array of checkbox menu item specifications.
+	 * @return A populated JMenu object.
+	 */
+	private JMenu createCheckboxMenu(String menuName, MenuItemSpec... items) {
+		JMenu menu = new JMenu(menuName);
+
+		for (MenuItemSpec item : items) {
+			JCheckBoxMenuItem menuItem = new JCheckBoxMenuItem(item.name, item.initialState);
+			menuItem.addActionListener(item.action);
+			menu.add(menuItem);
+		}
+		return menu;
+	}
+
+	/**
+	 * Creates a menu with the given name and checkbox items.
+	 * @param menuName The name of the menu.
+	 * @param items Varargs array of checkbox menu item specifications.
+	 * @return A populated JMenu object.
+	 */
+	private JMenu createMenu(String menuName, MenuItemSpec... items) {
+		JMenu menu = new JMenu(menuName);
+
+		for (MenuItemSpec item : items) {
+			JMenuItem menuItem = new JMenuItem(item.name);
+			menuItem.addActionListener(item.action);
+			menu.add(menuItem);
+		}
+		return menu;
+	}
+
+	/**
+	 * Helper class to hold menu item specifications.
+	 */
+	private static class MenuItemSpec {
+		String name;
+		ActionListener action;
+		boolean initialState;
+
+		public MenuItemSpec(String name, ActionListener action) {
+			this(name, action,false);
+		}
+
+		public MenuItemSpec(String name, ActionListener action, boolean initialState) {
+			this.name = name;
+			this.action = action;
+			this.initialState = initialState;
+		}
+	}
+
+	/**
 	 * Sets up the menu bar for the application.
 	 */
 	private void setupMenuBar() {
-		JMenuBar menuBar = new JMenuBar();
-
 		// File menu
-		JMenu fileMenu = new JMenu("File");
-		fileMenu.add(createMenuItem("New", e -> newGraph()));
-		fileMenu.add(createMenuItem("Open", e -> openGraph()));
-		fileMenu.add(createMenuItem("Save", e -> saveGraph()));
+		JMenu fileMenu = createMenu("File",
+				new MenuItemSpec("New", e -> newGraph()),
+				new MenuItemSpec("Open", e -> openGraph()),
+				new MenuItemSpec("Save", e -> saveGraph()));
 
 		// Vertex menu
-		JMenu vertexMenu = new JMenu("Vertex");
-		vertexMenu.add(createMenuItem("Add Vertex", this::addVertex));
-		vertexMenu.add(createMenuItem("Delete Vertex", this::deleteVertex));
-		vertexMenu.add(createMenuItem("Set Location", this::setVertexLocation));
-		vertexMenu.add(createMenuItem("Show Location", this::showVertexLocation));
+		JMenu vertexMenu = createMenu("Vertex",
+				new MenuItemSpec("Add Vertex", this::addVertex),
+				new MenuItemSpec("Delete Vertex", this::deleteVertex),
+				new MenuItemSpec("Set Vertex Location", this::setVertexLocation),
+				new MenuItemSpec("Show Vertex Location", this::showVertexLocation));
 
 		// Edge menu
-		JMenu edgeMenu = new JMenu("Edge");
-		edgeMenu.add(createMenuItem("Add Edge", this::addEdge));
-		edgeMenu.add(createMenuItem("Delete Edge", this::deleteEdge));
-		edgeMenu.add(createMenuItem("Set Weight", this::setEdgeWeight));
-		edgeMenu.add(createMenuItem("Show Weight", this::showEdgeWeight));
+		JMenu edgeMenu = createMenu("Edge",
+				new MenuItemSpec("Add Edge", this::addEdge),
+				new MenuItemSpec("Delete Edge", this::deleteEdge),
+				new MenuItemSpec("Set Edge Weight", this::setEdgeWeight),
+				new MenuItemSpec("Show Edge Weight", this::showEdgeWeight));
 
-		// Traverse menu
-		JMenu traverseMenu = new JMenu("Traversal");
-		traverseMenu.add(createMenuItem("Clear", this::clearTraversal));
-		traverseMenu.add(createMenuItem("Breadth First Search", this::performBFS));
-		traverseMenu.add(createMenuItem("Depth First Search",	this::performDFS));
-		traverseMenu.add(createMenuItem("Minimum Spanning Tree", this::performMST));
-		traverseMenu.add(createMenuItem("Shortest Path", this::findShortestPath));
+		// Traversal menu
+		JMenu traverseMenu = createMenu("Traversal",
+				new MenuItemSpec("None", this::clearTraversal),
+				new MenuItemSpec("Breadth First Search", this::performBFS),
+				new MenuItemSpec("Depth First Search", this::performDFS),
+				new MenuItemSpec("Minimum Spanning Tree", this::performMST),
+				new MenuItemSpec("Shortest Path", this::findShortestPath));
 
-		JMenu settingsMenu = new JMenu("View Settings");
-		settingsMenu.add(createCheckboxMenuItem("Show Edge Weights", this::toggleShowWeights, false));
-		settingsMenu.add(createCheckboxMenuItem("Show Dark Mode", this::toggleDarkMode, paintManager.getCurrentTheme() == ColorManager.ColorTheme.DARK));
+		// View settings menu
+		JMenu settingsMenu = createCheckboxMenu("View Settings",
+				new MenuItemSpec("Show Edge Weights", this::toggleShowWeights, false),
+				new MenuItemSpec("Show Dark Mode", this::toggleDarkMode, paintManager.getCurrentTheme() == ColorManager.ColorTheme.DARK));
 
+		// The menubar
+		JMenuBar menuBar = new JMenuBar();
 		menuBar.setLayout(new FlowLayout(FlowLayout.LEFT));
-		menuBar.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
-
 		menuBar.add(fileMenu);
 		menuBar.add(vertexMenu);
 		menuBar.add(edgeMenu);
 		menuBar.add(traverseMenu);
 		menuBar.add(settingsMenu);
 
-		setJMenuBar(menuBar);
+		super.setJMenuBar(menuBar);
 	}
-
-	/**
-	 * Creates a menu item with the specified title and action listener.
-	 * @param title the title of the menu item
-	 * @param actionListener the action listener for the menu item
-	 * @return the created menu item
-	 */
-	private JMenuItem createMenuItem(String title, ActionListener actionListener) {
-		JMenuItem menuItem = new JMenuItem(title);
-		menuItem.addActionListener(actionListener);
-		return menuItem;
-	}
-
-	/**
-	 * Creates a JCheckBoxMenuItem with the specified title and action listener.
-	 *
-	 * @param title          the title of the checkbox menu item
-	 * @param actionListener the action listener for the checkbox menu item
-	 * @param selected       the initial selected state of the checkbox menu item
-	 * @return the created JCheckBoxMenuItem
-	 */
-	private JCheckBoxMenuItem createCheckboxMenuItem(String title, ActionListener actionListener, boolean selected) {
-		JCheckBoxMenuItem checkboxMenuItem = new JCheckBoxMenuItem(title, selected);
-		checkboxMenuItem.addActionListener(actionListener);
-		return checkboxMenuItem;
-	}
-
 
 	/**
 	 * Creates a new graph based on user selection (directed or undirected).
@@ -772,7 +734,7 @@ class GraphView extends JFrame {
 	 * @param e the action event
 	 */
 	private void deleteVertex(ActionEvent e) {
-		String vertexLabel = JOptionPane.showInputDialog(this, "Enter the vertex label to delete:");
+		String vertexLabel = JOptionPane.showInputDialog(this, "Enter the vertex label to delete:", "Delete Vertex", JOptionPane.PLAIN_MESSAGE);
 		if (vertexLabel != null && !vertexLabel.isBlank()) {
 			Optional<Vertex> vertex = displayedGraph.getVertices().stream().filter(v -> v.LABEL.equals(vertexLabel)).findFirst();
 			if (vertex.isPresent() && displayedGraph.removeVertex(vertex.get())) {
@@ -789,13 +751,13 @@ class GraphView extends JFrame {
 	 * @param e the action event
 	 */
 	private void showVertexLocation(ActionEvent e) {
-		String label = JOptionPane.showInputDialog(this, "Enter vertex label:");
-		if (label != null && !label.isBlank()) {
+		String vertexLabel = JOptionPane.showInputDialog(this, "Enter vertex label:", "Show Vertex Location", JOptionPane.PLAIN_MESSAGE);
+		if (vertexLabel != null && !vertexLabel.isBlank()) {
 			Optional<Vertex> vertex = displayedGraph.getVertices().stream()
-					.filter(v -> v.LABEL.equals(label))
+					.filter(v -> v.LABEL.equals(vertexLabel))
 					.findFirst();
 			if (vertex.isPresent()) {
-				JOptionPane.showMessageDialog(this, "Location of " + label + ": (" + vertex.get().x + ", " + vertex.get().y + ")");
+				JOptionPane.showMessageDialog(this, "Location of " + vertexLabel + ": (" + vertex.get().x + ", " + vertex.get().y + ")");
 			} else {
 				JOptionPane.showMessageDialog(this, "Vertex not found.", "Error", JOptionPane.ERROR_MESSAGE);
 			}
@@ -819,7 +781,7 @@ class GraphView extends JFrame {
 		panel.add(new JLabel("New Y Coordinate:"));
 		panel.add(yField);
 
-		int result = JOptionPane.showConfirmDialog(this, panel, "Edit Vertex Location", JOptionPane.OK_CANCEL_OPTION);
+		int result = JOptionPane.showConfirmDialog(this, panel, "Set Vertex Location", JOptionPane.OK_CANCEL_OPTION);
 		if (result == JOptionPane.OK_OPTION) {
 			try {
 				String label = labelField.getText();
@@ -847,7 +809,7 @@ class GraphView extends JFrame {
 		JPanel panel = new JPanel(new GridLayout(3, 2));
 		JTextField startField = new JTextField(10);
 		JTextField endField = new JTextField(10);
-		JTextField weightField = new JTextField(10);
+		JTextField weightField = new JTextField("0", 10);
 
 		panel.add(new JLabel("Start Vertex:"));
 		panel.add(startField);
@@ -964,8 +926,10 @@ class GraphView extends JFrame {
 			Optional<Vertex> v1 = findVertexByLabel(v1Label);
 			Optional<Vertex> v2 = findVertexByLabel(v2Label);
 			if (v1.isPresent() && v2.isPresent()) {
-				double weight = displayedGraph.getEdgeWeight(v1.get(), v2.get());
-				JOptionPane.showMessageDialog(this, "Weight of the edge: " + weight);
+				Vertex x = v1.get();
+				Vertex y = v2.get();
+				int weight = (int) displayedGraph.getEdgeWeight(x, y);
+				JOptionPane.showMessageDialog(this, String.format("Weight of the edge [%s, %s] is %d", x.LABEL, y.LABEL, weight));
 			} else {
 				JOptionPane.showMessageDialog(this, "Edge not found.", "Error", JOptionPane.ERROR_MESSAGE);
 			}
@@ -977,7 +941,12 @@ class GraphView extends JFrame {
 	 * @param e the action event
 	 */
 	private void performDFS(ActionEvent e) {
-		String vertexLabel = JOptionPane.showInputDialog(this, "Enter the starting vertex for DFS:", "Display Depth First Search", JOptionPane.PLAIN_MESSAGE);
+		String vertexLabel = JOptionPane.showInputDialog(
+				this,
+				"Enter the starting vertex for DFS:",
+				"Display Depth First Search",
+				JOptionPane.PLAIN_MESSAGE
+		);
 		if (vertexLabel != null && !vertexLabel.isBlank()) {
 			clearTraversal(e);
 
@@ -997,7 +966,12 @@ class GraphView extends JFrame {
 	 * @param e the action event
 	 */
 	private void performBFS(ActionEvent e) {
-		String vertexLabel = JOptionPane.showInputDialog(this, "Enter the starting vertex for BFS:", "Display Breadth First Search", JOptionPane.PLAIN_MESSAGE);
+		String vertexLabel = JOptionPane.showInputDialog(
+				this,
+				"Enter the starting vertex for BFS:",
+				"Display Breadth First Search",
+				JOptionPane.PLAIN_MESSAGE
+		);
 		if (vertexLabel != null && !vertexLabel.isBlank()) {
 			clearTraversal(e);
 
@@ -1017,7 +991,12 @@ class GraphView extends JFrame {
 	 * @param e the action event
 	 */
 	private void performMST(ActionEvent e) {
-		String startVertexLabel = JOptionPane.showInputDialog(this, "Enter starting vertex for MST:", "Display Minimum Spanning Tree", JOptionPane.PLAIN_MESSAGE);
+		String startVertexLabel = JOptionPane.showInputDialog(
+				this,
+				"Enter starting vertex for MST:",
+				"Display Minimum Spanning Tree",
+				JOptionPane.PLAIN_MESSAGE
+		);
 		if (startVertexLabel != null && !startVertexLabel.isBlank()) {
 			clearTraversal(e);
 
@@ -1075,7 +1054,7 @@ class GraphView extends JFrame {
 	 * @return an optional containing the vertex if found, or empty if not found
 	 */
 	private Optional<Vertex> findVertexByLabel(String label) {
-		return displayedGraph.getVertices().stream().filter(v -> v.LABEL.equals(label)).findFirst();
+		return displayedGraph.getVertices().stream().filter(v -> v.LABEL.equalsIgnoreCase(label)).findFirst();
 	}
 
 	/**
@@ -1362,7 +1341,7 @@ class GraphView extends JFrame {
 		 * @param path        the path to highlight
 		 */
 		public void drawGraph(Graphics2D g2d, int panelWidth, int panelHeight, Graph<T> graph, List<Edge<T, T>> path) {
-			if (graph == null || graph.isEmpty()) return;
+			if (graph == null || graph.size() <= 0) return;
 
 			g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 			g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
@@ -1446,7 +1425,7 @@ class GraphView extends JFrame {
 
 			// First, draw all edges of the graph
 			for (Edge<T, T> edge : graph.getEdges()) {
-				Edge<T, T> reverseEdge = new Edge<>(edge.DESTINATION, edge.SOURCE, edge.weight);
+				Edge<T, T> reverseEdge = new Edge<>(edge.SECOND, edge.FIRST, edge.weight);
 				if (!pathEdgesCopy.contains(edge) && !pathEdgesCopy.contains(reverseEdge)) {
 					drawEdge(g2d, edge, graph.isDirected(), scale, offset, color);
 				}
@@ -1471,8 +1450,8 @@ class GraphView extends JFrame {
 		 * @param color     the color of the edge
 		 */
 		private void drawEdge(Graphics2D g2d, Edge<T, T> edge, boolean isDirected, double scale, Point offset, Color color) {
-			T v1 = edge.SOURCE;
-			T v2 = edge.DESTINATION;
+			T v1 = edge.FIRST;
+			T v2 = edge.SECOND;
 
 			g2d.setColor(color);
 
