@@ -7,6 +7,7 @@ import java.io.*;
 import java.util.*;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 
 
 /**
@@ -425,22 +426,28 @@ class DirectedGraph<T> extends Graph<T> {
 
 
 /**
- * The Edge class represents an edge in a graph with a source, destination, and weight.
- * @param <U> the type of the source vertex
- * @param <V> the type of the destination vertex
+ * The Edge class represents an edge between the specified vertices, and its weight.
+ * @param <U> the type of the first vertex
+ * @param <V> the type of the second vertex
  *
  * @author Daniel Tongu
  */
 final class Edge<U, V> implements Serializable {
+
+	/** the first vertex.*/
 	final U FIRST;
+
+	/** the second vertex.*/
 	final V SECOND;
+
+	/** the weight of this edge.*/
 	double weight;
 
 	/**
-	 * Constructs an Edge with the specified first, second, and weight.
-	 * @param first      the first vertex
+	 * Constructs an Edge between the specified vertices, and weight.
+	 * @param first  the first vertex
 	 * @param second the second vertex
-	 * @param weight      the weight of the edge
+	 * @param weight the weight of the edge
 	 */
 	public Edge(U first, V second, double weight) {
 		this.FIRST = first;
@@ -491,6 +498,7 @@ class GraphView extends JFrame {
 	private Graph<Vertex> displayedGraph;
 	private PaintManager<Vertex> paintManager;
 	private JPanel drawingPanel;
+	private JMenu traversalMenu;
 
 	/**
 	 * Constructs a new GraphView instance.
@@ -536,7 +544,6 @@ class GraphView extends JFrame {
 		drawingPanel.setBackground(paintManager.getPanelBackgroundColor());
 		return drawingPanel;
 	}
-
 	/**
 	 * Creates a menu with the given name and checkbox items.
 	 * @param menuName The name of the menu.
@@ -546,18 +553,27 @@ class GraphView extends JFrame {
 	private JMenu createCheckboxMenu(String menuName, MenuItemSpec... items) {
 		JMenu menu = new JMenu(menuName);
 
+		ButtonGroup group = new ButtonGroup();
 		for (MenuItemSpec item : items) {
 			JCheckBoxMenuItem menuItem = new JCheckBoxMenuItem(item.name, item.initialState);
-			menuItem.addActionListener(item.action);
+			menuItem.addActionListener(e -> {
+				item.action.actionPerformed(e);
+				for (Component comp : menu.getMenuComponents()) {
+					if (comp instanceof JCheckBoxMenuItem) {
+						((JCheckBoxMenuItem) comp).setSelected(comp == menuItem);
+					}
+				}
+			});
 			menu.add(menuItem);
+			group.add(menuItem);
 		}
 		return menu;
 	}
 
 	/**
-	 * Creates a menu with the given name and checkbox items.
+	 * Creates a menu with the given name and regular menu items.
 	 * @param menuName The name of the menu.
-	 * @param items Varargs array of checkbox menu item specifications.
+	 * @param items Varargs array of menu item specifications.
 	 * @return A populated JMenu object.
 	 */
 	private JMenu createMenu(String menuName, MenuItemSpec... items) {
@@ -580,7 +596,7 @@ class GraphView extends JFrame {
 		boolean initialState;
 
 		public MenuItemSpec(String name, ActionListener action) {
-			this(name, action,false);
+			this(name, action, false);
 		}
 
 		public MenuItemSpec(String name, ActionListener action, boolean initialState) {
@@ -615,8 +631,8 @@ class GraphView extends JFrame {
 				new MenuItemSpec("Show Edge Weight", this::showEdgeWeight));
 
 		// Traversal menu
-		JMenu traverseMenu = createMenu("Traversal",
-				new MenuItemSpec("None", this::clearTraversal),
+		traversalMenu = createCheckboxMenu("Traversal",
+				new MenuItemSpec("None", this::clearTraversal, true),
 				new MenuItemSpec("Breadth First Search", this::performBFS),
 				new MenuItemSpec("Depth First Search", this::performDFS),
 				new MenuItemSpec("Minimum Spanning Tree", this::performMST),
@@ -633,7 +649,7 @@ class GraphView extends JFrame {
 		menuBar.add(fileMenu);
 		menuBar.add(vertexMenu);
 		menuBar.add(edgeMenu);
-		menuBar.add(traverseMenu);
+		menuBar.add(traversalMenu);
 		menuBar.add(settingsMenu);
 
 		super.setJMenuBar(menuBar);
@@ -937,28 +953,77 @@ class GraphView extends JFrame {
 	}
 
 	/**
+	 * Clears the current path and resets the displayed graph to the original graph.
+	 */
+	private void clearTraversal(ActionEvent e) {
+		path = null;
+		displayedGraph = originalGraph;
+		drawingPanel.repaint();
+	}
+
+	/**
+	 * Resets the traversal menu to "None" selected.
+	 */
+	private void resetTraversalToNone(ActionEvent e) {
+		if (traversalMenu != null) {
+			for (Component comp : traversalMenu.getMenuComponents()) {
+				if (comp instanceof JCheckBoxMenuItem menuItem) {
+					menuItem.setSelected(menuItem.getText().equalsIgnoreCase("None"));
+				}
+			}
+			clearTraversal(e);
+		}
+	}
+
+	/**
+	 * Temporarily unchecks the menu item associated with the given action event.
+	 * @param e the action event
+	 */
+	private void temporarilyUncheckMenuItem(ActionEvent e) {
+		JCheckBoxMenuItem item = (JCheckBoxMenuItem) e.getSource();
+		item.setSelected(false);
+		item.getParent().repaint();
+	}
+
+	/**
+	 * Helper method to perform a graph traversal.
+	 * @param e the action event
+	 * @param traversalType the type of traversal ("DFS" or "BFS")
+	 * @param traversalFunction the function to perform the traversal
+	 */
+	private void performTraversal(ActionEvent e, String traversalType, Function<Vertex, List<Edge<Vertex, Vertex>>> traversalFunction) {
+		temporarilyUncheckMenuItem(e);
+
+		SwingUtilities.invokeLater(() -> {
+			String vertexLabel = JOptionPane.showInputDialog(
+					this,
+					String.format("Enter the starting vertex for %s:", traversalType),
+					String.format("Display %s", traversalType),
+					JOptionPane.PLAIN_MESSAGE
+			);
+			if (vertexLabel != null && !vertexLabel.isBlank()) {
+				Optional<Vertex> vertex = findVertexByLabel(vertexLabel);
+				if (vertex.isPresent()) {
+					path = traversalFunction.apply(vertex.get());
+					drawingPanel.repaint();
+					JOptionPane.showMessageDialog(this, String.format("%s from %s displayed.", traversalType, vertexLabel));
+					((JCheckBoxMenuItem) e.getSource()).setSelected(true);
+				} else {
+					JOptionPane.showMessageDialog(this, "Vertex not found.", "Error", JOptionPane.ERROR_MESSAGE);
+					resetTraversalToNone(e);
+				}
+			} else {
+				resetTraversalToNone(e);
+			}
+		});
+	}
+
+	/**
 	 * Performs a depth-first search starting from a specified vertex.
 	 * @param e the action event
 	 */
 	private void performDFS(ActionEvent e) {
-		String vertexLabel = JOptionPane.showInputDialog(
-				this,
-				"Enter the starting vertex for DFS:",
-				"Display Depth First Search",
-				JOptionPane.PLAIN_MESSAGE
-		);
-		if (vertexLabel != null && !vertexLabel.isBlank()) {
-			clearTraversal(e);
-
-			Optional<Vertex> vertex = findVertexByLabel(vertexLabel);
-			if (vertex.isPresent()) {
-				path = displayedGraph.dfs(vertex.get());
-				drawingPanel.repaint();
-				JOptionPane.showMessageDialog(this, String.format("DFS from %s displayed.", vertexLabel));
-			} else {
-				JOptionPane.showMessageDialog(this, "Vertex not found.", "Error", JOptionPane.ERROR_MESSAGE);
-			}
-		}
+		performTraversal(e, "DFS", displayedGraph::dfs);
 	}
 
 	/**
@@ -966,24 +1031,7 @@ class GraphView extends JFrame {
 	 * @param e the action event
 	 */
 	private void performBFS(ActionEvent e) {
-		String vertexLabel = JOptionPane.showInputDialog(
-				this,
-				"Enter the starting vertex for BFS:",
-				"Display Breadth First Search",
-				JOptionPane.PLAIN_MESSAGE
-		);
-		if (vertexLabel != null && !vertexLabel.isBlank()) {
-			clearTraversal(e);
-
-			Optional<Vertex> vertex = findVertexByLabel(vertexLabel);
-			if (vertex.isPresent()) {
-				path = displayedGraph.bfs(vertex.get());
-				drawingPanel.repaint();
-				JOptionPane.showMessageDialog(this, String.format("BFS from %s displayed.", vertexLabel));
-			} else {
-				JOptionPane.showMessageDialog(this, "Vertex not found.", "Error", JOptionPane.ERROR_MESSAGE);
-			}
-		}
+		performTraversal(e, "BFS", displayedGraph::bfs);
 	}
 
 	/**
@@ -991,24 +1039,30 @@ class GraphView extends JFrame {
 	 * @param e the action event
 	 */
 	private void performMST(ActionEvent e) {
-		String startVertexLabel = JOptionPane.showInputDialog(
-				this,
-				"Enter starting vertex for MST:",
-				"Display Minimum Spanning Tree",
-				JOptionPane.PLAIN_MESSAGE
-		);
-		if (startVertexLabel != null && !startVertexLabel.isBlank()) {
-			clearTraversal(e);
+		temporarilyUncheckMenuItem(e);
 
-			try {
-				Vertex startVertex = findVertexByLabel(startVertexLabel).orElseThrow(() -> new IllegalArgumentException("Vertex not found."));
-				displayedGraph = originalGraph.minimumSpanningTree(startVertex); // Temporarily display the MST
-				drawingPanel.repaint();
-				JOptionPane.showMessageDialog(this, String.format("MST starting at from %s displayed.", startVertexLabel));
-			} catch (IllegalArgumentException | UnsupportedOperationException ex) {
-				JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+		SwingUtilities.invokeLater(() -> {
+			String startVertexLabel = JOptionPane.showInputDialog(
+					this,
+					"Enter starting vertex for MST:",
+					"Display Minimum Spanning Tree",
+					JOptionPane.PLAIN_MESSAGE
+			);
+			if (startVertexLabel != null && !startVertexLabel.isBlank()) {
+				try {
+					Vertex startVertex = findVertexByLabel(startVertexLabel).orElseThrow(() -> new IllegalArgumentException("Vertex not found."));
+					displayedGraph = originalGraph.minimumSpanningTree(startVertex); // Temporarily display the MST
+					drawingPanel.repaint();
+					JOptionPane.showMessageDialog(this, String.format("MST starting at %s displayed.", startVertexLabel));
+					((JCheckBoxMenuItem) e.getSource()).setSelected(true);  // Keep MST checked
+				} catch (IllegalArgumentException | UnsupportedOperationException ex) {
+					JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+					resetTraversalToNone(e);
+				}
+			} else {
+				resetTraversalToNone(e);
 			}
-		}
+		});
 	}
 
 	/**
@@ -1016,36 +1070,43 @@ class GraphView extends JFrame {
 	 * @param e the action event
 	 */
 	private void findShortestPath(ActionEvent e) {
-		JPanel panel = new JPanel(new GridLayout(2, 2));
-		JTextField startField = new JTextField(5);
-		JTextField endField = new JTextField(5);
+		temporarilyUncheckMenuItem(e);
 
-		panel.add(new JLabel("Start vertex:"));
-		panel.add(startField);
-		panel.add(new JLabel("End vertex:"));
-		panel.add(endField);
+		SwingUtilities.invokeLater(() -> {
+			JPanel panel = new JPanel(new GridLayout(2, 2));
+			JTextField startField = new JTextField(5);
+			JTextField endField = new JTextField(5);
 
-		int result = JOptionPane.showConfirmDialog(this, panel, "Find Shortest Path", JOptionPane.OK_CANCEL_OPTION);
-		if (result == JOptionPane.OK_OPTION) {
-			String startLabel = startField.getText();
-			String endLabel = endField.getText();
-			Optional<Vertex> startVertex = findVertexByLabel(startLabel);
-			Optional<Vertex> endVertex = findVertexByLabel(endLabel);
+			panel.add(new JLabel("Start vertex:"));
+			panel.add(startField);
+			panel.add(new JLabel("End vertex:"));
+			panel.add(endField);
 
-			clearTraversal(e);
+			int result = JOptionPane.showConfirmDialog(this, panel, "Find Shortest Path", JOptionPane.OK_CANCEL_OPTION);
+			if (result == JOptionPane.OK_OPTION) {
+				String startLabel = startField.getText();
+				String endLabel = endField.getText();
+				Optional<Vertex> startVertex = findVertexByLabel(startLabel);
+				Optional<Vertex> endVertex = findVertexByLabel(endLabel);
 
-			if (startVertex.isPresent() && endVertex.isPresent()) {
-				path = displayedGraph.shortestPath(startVertex.get(), endVertex.get());
-				if (path.isEmpty()) {
-					JOptionPane.showMessageDialog(this, String.format("No path from %s to %s.", startLabel, endLabel));
+				if (startVertex.isPresent() && endVertex.isPresent()) {
+					path = displayedGraph.shortestPath(startVertex.get(), endVertex.get());
+					if (path.isEmpty()) {
+						JOptionPane.showMessageDialog(this, String.format("No path from %s to %s.", startLabel, endLabel));
+						resetTraversalToNone(e);
+					} else {
+						drawingPanel.repaint();
+						JOptionPane.showMessageDialog(this, String.format("Shortest path from %s to %s displayed.", startLabel, endLabel));
+						((JCheckBoxMenuItem) e.getSource()).setSelected(true);  // Keep Shortest Path checked
+					}
 				} else {
-					drawingPanel.repaint();
-					JOptionPane.showMessageDialog(this, String.format("Shortest path from %s to %s displayed.", startLabel, endLabel));
+					JOptionPane.showMessageDialog(this, "One or both vertices not found.", "Error", JOptionPane.ERROR_MESSAGE);
+					resetTraversalToNone(e);
 				}
 			} else {
-				JOptionPane.showMessageDialog(this, "One or both vertices not found.", "Error", JOptionPane.ERROR_MESSAGE);
+				resetTraversalToNone(e);
 			}
-		}
+		});
 	}
 
 	/**
@@ -1055,15 +1116,6 @@ class GraphView extends JFrame {
 	 */
 	private Optional<Vertex> findVertexByLabel(String label) {
 		return displayedGraph.getVertices().stream().filter(v -> v.LABEL.equalsIgnoreCase(label)).findFirst();
-	}
-
-	/**
-	 * Clears the current path and resets the displayed graph to the original graph.
-	 */
-	private void clearTraversal(ActionEvent e) {
-		path = null;
-		displayedGraph = originalGraph;
-		drawingPanel.repaint();
 	}
 
 	/**
